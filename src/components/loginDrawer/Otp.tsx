@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import OTPInput from "react-otp-input";
 import { useCountDown } from "../../hooks/useCountDown";
 import { supabase } from "../../lib/supabase"; // Ensure you import supabase
+import { verifyOtpWithRetry } from "../../utils/auth"; // Import the new utility
 import { useEmailLoginMutation } from "./useEmailLoginMutation";
 import { useNavigate } from "react-router-dom";
 
@@ -40,15 +41,16 @@ function Otp({ close, onBack, emailId }: OtpProps) {
     setError("");
 
     try {
-      const { data, error: otpError } = await supabase.auth.verifyOtp({
-        email: emailId,
-        token: otp,
-        type: "email",
-      });
+      // Use the retry utility instead of direct verification
+      const { data, error: otpError } = await verifyOtpWithRetry(emailId, otp);
 
-      localStorage.setItem(import.meta.env.VITE_TOKEN_ID , JSON.stringify(data.session));
-      
       if (otpError) throw otpError;
+
+      if (data?.session) {
+        localStorage.setItem(import.meta.env.VITE_TOKEN_ID, JSON.stringify(data.session));
+      } else {
+        throw new Error("No session data received");
+      }
 
       const { user } = data;
       if (!user) throw new Error("User data not found");
@@ -59,15 +61,15 @@ function Otp({ close, onBack, emailId }: OtpProps) {
       const isNewUser = Math.abs(createdAt - lastSignInAt) < NEW_USER_THRESHOLD;
 
       if (isNewUser) {
-        // Call the sendWelcomeEmail function
-        const { error: welcomeEmailError } = await supabase.functions.invoke(
-          "sendWelcomeEmail",
-          {
+        // Use try/catch for welcome email to prevent blocking the authentication
+        try {
+          await supabase.functions.invoke("sendWelcomeEmail", {
             body: { email: user.email },
-          }
-        );
-
-        if (welcomeEmailError) throw welcomeEmailError;
+          });
+        } catch (welcomeError) {
+          console.error("Error sending welcome email:", welcomeError);
+          // Continue despite welcome email error
+        }
 
         navigate("/profile");
       } else {
@@ -82,9 +84,16 @@ function Otp({ close, onBack, emailId }: OtpProps) {
       }
     } catch (err: unknown) {
       if (err instanceof Error) {
-        setError(err.message);
+        // Provide more user-friendly error messages
+        if (err.message.includes("500")) {
+          setError("The server encountered an error. Please try again later.");
+        } else if (err.message.includes("Invalid")) {
+          setError("Invalid verification code. Please check and try again.");
+        } else {
+          setError(err.message);
+        }
       } else {
-        setError("An unknown error occurred.");
+        setError("An unknown error occurred. Please try again.");
       }
     } finally {
       setIsPending(false);

@@ -1,3 +1,83 @@
+import { supabase } from "../lib/supabase";
+
+// Maximum number of retry attempts
+const MAX_RETRIES = 3;
+// Delay between retries (in milliseconds)
+const RETRY_DELAY = 1000;
+
+/**
+ * Verify OTP with retry mechanism for handling server errors
+ */
+export const verifyOtpWithRetry = async (email: string, token: string) => {
+  let attempts = 0;
+  let lastError: Error | null = null;
+
+  while (attempts < MAX_RETRIES) {
+    try {
+      // Attempt to verify the OTP
+      const { data, error } = await supabase.auth.verifyOtp({
+        email,
+        token,
+        type: "email",
+      });
+
+      if (error) throw error;
+      
+      return { data, error: null };
+    } catch (error: any) {
+      lastError = error;
+      console.error(`OTP verification attempt ${attempts + 1} failed:`, error);
+      
+      // If error is not 500, don't retry
+      if (error.status !== 500) {
+        break;
+      }
+      
+      // Wait before retrying
+      await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+      attempts++;
+    }
+  }
+
+  // If all retries failed, try a fallback approach - sign in with OTP directly
+  try {
+    console.log("Trying fallback authentication method");
+    
+    const { data, error } = await supabase.auth.signInWithOtp({
+      email,
+      token,
+      options: {
+        shouldCreateUser: false
+      }
+    });
+    
+    if (error) throw error;
+    
+    return { data, error: null };
+  } catch (error: any) {
+    console.error("Fallback authentication failed:", error);
+    
+    // Return the last error from the retry attempts
+    return { data: null, error: lastError || new Error("Authentication failed") };
+  }
+};
+
+/**
+ * Get user data from Supabase
+ */
+export const getUserData = async () => {
+  try {
+    const { data, error } = await supabase.auth.getUser();
+    
+    if (error) throw error;
+    
+    return { data, error: null };
+  } catch (error) {
+    console.error("Error fetching user data:", error);
+    return { data: null, error };
+  }
+};
+
 /**
  * Gets the current access token from localStorage
  */
