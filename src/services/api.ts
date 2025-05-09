@@ -993,14 +993,14 @@ export const getUserProfile = async (emailOrId: string): Promise<any> => {
 };
 
 // Global error handler for fetch operations
-export const safeFetch = async (url: string, options = {}) => {
+export const safeFetch = async (url: string, options: RequestInit = {}) => {
   try {
     const response = await fetch(url, {
       ...options,
       // Include credentials for cross-origin requests
       credentials: 'include',
       headers: {
-        ...options.headers,
+        ...(options.headers || {}),
         // Add custom headers here
       }
     });
@@ -1014,9 +1014,12 @@ export const safeFetch = async (url: string, options = {}) => {
     }
     
     return response.json();
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Fetch error:', error);
     // Return a standardized error object
-    return { error: true, message: error.message || 'Network request failed' };
+    return { 
+      error: true, 
+      message: error instanceof Error ? error.message : 'Network request failed' 
+    };
   }
 };
