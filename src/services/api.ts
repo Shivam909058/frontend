@@ -991,3 +991,32 @@ export const getUserProfile = async (emailOrId: string): Promise<any> => {
     return null;
   }
 };
+
+// Global error handler for fetch operations
+export const safeFetch = async (url: string, options = {}) => {
+  try {
+    const response = await fetch(url, {
+      ...options,
+      // Include credentials for cross-origin requests
+      credentials: 'include',
+      headers: {
+        ...options.headers,
+        // Add custom headers here
+      }
+    });
+    
+    if (!response.ok) {
+      // Handle HTTP errors
+      const errorData = await response.json().catch(() => ({
+        message: `HTTP error ${response.status}`
+      }));
+      throw new Error(errorData.message || `HTTP error ${response.status}`);
+    }
+    
+    return response.json();
+  } catch (error) {
+    console.error('Fetch error:', error);
+    // Return a standardized error object
+    return { error: true, message: error.message || 'Network request failed' };
+  }
+};
