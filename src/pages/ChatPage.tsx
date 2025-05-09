@@ -74,7 +74,6 @@ const ChatPage = () => {
   const [showCreateShaktyModal, setShowCreateShaktyModal] = useState(false);
   const [showCopied, setShowCopied] = useState(false); // Add this state
   const [creatorName, setCreatorName] = useState<string>("");
-  const [activeBucketId, setActiveBucketId] = useState<string | null>(null);
   // console.log(bucketPrompt);
   // console.log(bucketSources);
   const [messages, setMessages] = useState<{ role: string; content: string; isLoading?: boolean }[]>(
@@ -567,11 +566,14 @@ const ChatPage = () => {
     try {
       console.log(`Creating new chat session for bucket: ${bucketId}, topic: ${topic}`);
       
+      // Use nullish coalescing to provide a default empty string
+      const bucketIdParam = bucketId ?? "";
+      
       const response = await axios.post(
         `${API_URL}/api/chat/session/create`,
         { topic },
         {
-          params: { bucket_id: bucketId || "" }, // Add default empty string
+          params: { bucket_id: bucketIdParam },
           headers: {
             Authorization: `Bearer ${token}`
           }
@@ -657,7 +659,7 @@ const ChatPage = () => {
       }
       
       // Get chat history (previous messages for context)
-      const chatHistory = messages
+      const chatHistory: [string, string][] = messages
         .filter(msg => msg.role !== "user" || msg.content !== messages[0].content)
         .map(msg => [msg.role === "user" ? "Human" : "AI", msg.content]);
       
@@ -665,7 +667,7 @@ const ChatPage = () => {
       const aiResponse = await chatWithShakty(
         bucketIdToUse,
         question,
-        chatHistory.slice(-4) as [string, string][] // Type assertion
+        chatHistory.slice(-4)
       );
       
       console.log("Raw AI response:", aiResponse);
@@ -693,12 +695,17 @@ const ChatPage = () => {
       // Save messages to the chat session
       if (newSessionId) {
         try {
-          // Make sure we're passing a string, not an object
-          const sessionIdToUse = typeof newSessionId === 'string' 
-            ? newSessionId 
-            : (newSessionId && typeof newSessionId === 'object' && 'id' in newSessionId 
-                ? (newSessionId as {id: string}).id 
-                : String(newSessionId));
+          // Safe extraction of the session ID
+          let sessionIdToUse: string;
+          
+          if (typeof newSessionId === 'string') {
+            sessionIdToUse = newSessionId;
+          } else if (newSessionId && typeof newSessionId === 'object' && newSessionId !== null) {
+            // Check if it has an id property
+            sessionIdToUse = 'id' in newSessionId ? String((newSessionId as {id: string}).id) : String(newSessionId);
+          } else {
+            sessionIdToUse = String(newSessionId);
+          }
           
           await saveChatMessage(sessionIdToUse, question, 'user');
           await saveChatMessage(sessionIdToUse, responseText, 'llm');

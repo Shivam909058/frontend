@@ -140,9 +140,8 @@ interface CreatePostDrawerProps {
   onSourceAdded?: () => void;
 }
 
-// Mark unused function with underscore
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function _extractContentTopic(url: string): string {
+/* Unused function
+function extractContentTopic(url: string): string {
   if (url.includes('instagram.com')) {
     // Extract username or post context from Instagram URL
     const match = url.match(/instagram\.com\/([\w\.]+)/);
@@ -164,6 +163,7 @@ function _extractContentTopic(url: string): string {
     return 'Web content';
   }
 }
+*/
 
 const CreatePostDrawer: React.FC<CreatePostDrawerProps> = ({ bucketId, onClose, onSourceAdded }) => {
   const [url, setUrl] = useState<string>('');
