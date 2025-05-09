@@ -39,13 +39,21 @@ export const verifyOtpWithRetry = async (email: string, token: string) => {
     }
   }
 
-  // If all retries failed, try a fallback approach - sign in with OTP directly
+  // If all retries failed, try a fallback approach - sign in with email link
   try {
     console.log("Trying fallback authentication method");
     
+    // We can't use token directly with signInWithOtp, so let's use a different approach
+    // Instead, check if the user already exists and is authenticated
+    const { data: authData } = await supabase.auth.getSession();
+    
+    if (authData?.session) {
+      return { data: authData, error: null };
+    }
+    
+    // If no session exists, try to sign in again without the token
     const { data, error } = await supabase.auth.signInWithOtp({
       email,
-      token,
       options: {
         shouldCreateUser: false
       }
@@ -53,7 +61,11 @@ export const verifyOtpWithRetry = async (email: string, token: string) => {
     
     if (error) throw error;
     
-    return { data, error: null };
+    // This will send a new OTP, so we need to inform the user
+    return { 
+      data: null, 
+      error: new Error("A new verification code has been sent to your email. Please check your inbox.") 
+    };
   } catch (error: any) {
     console.error("Fallback authentication failed:", error);
     
