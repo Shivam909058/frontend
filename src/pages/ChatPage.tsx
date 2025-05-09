@@ -2,8 +2,7 @@ import React, {
   useState,
   useRef,
   useEffect,
-  useCallback,
-  useMemo,
+  useCallback
 } from "react";
 import { useNavigate, useLocation, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
@@ -17,8 +16,11 @@ import LoginButton from "../components/shakty_homepage_components/LoginButton";
 import axios from "axios";
 // Import the apiClient from our services
 import { apiClient } from '../services/api';
-import { chatWithShakty, listSources, saveChatMessage } from '../services/api';
+import { chatWithShakty, saveChatMessage } from '../services/api';
 import { checkSourceStatus } from '../services/api';
+
+// Add API_URL definition
+const API_URL = import.meta.env.VITE_SHAKTY_API_URL || "https://deployment-testing1.onrender.com";
 
 // Helper function to get access token from localStorage
 const getAccessToken = () => {
@@ -334,7 +336,7 @@ const ChatPage = () => {
   };
 
   // Update the processInstagram function to match the API expectations
-  const processInstagram = async (url: string, bucketId: string) => {
+  const processInstagram = async (url: string, bucketId: string): Promise<any> => {
     try {
       console.log("Processing Instagram URL:", url);
       

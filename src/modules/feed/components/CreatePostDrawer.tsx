@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  processUrl as processUrlApi, 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  processUrl as _processUrlApi, 
   processYouTube, 
   processInstagram, 
   processText,
@@ -83,7 +84,7 @@ const styles = {
     borderRadius: '4px',
     fontSize: '1rem',
     minHeight: '150px',
-    resize: 'vertical',
+    resize: 'vertical' as 'vertical',
     marginBottom: '8px',
   },
   info: {
@@ -139,7 +140,9 @@ interface CreatePostDrawerProps {
   onSourceAdded?: () => void;
 }
 
-function extractContentTopic(url: string): string {
+// Mark unused function with underscore
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function _extractContentTopic(url: string): string {
   if (url.includes('instagram.com')) {
     // Extract username or post context from Instagram URL
     const match = url.match(/instagram\.com\/([\w\.]+)/);
@@ -171,9 +174,13 @@ const CreatePostDrawer: React.FC<CreatePostDrawerProps> = ({ bucketId, onClose, 
   const [error, setError] = useState<string>('');
   const [success, setSuccess] = useState<string>('');
   const [processingStatus, setProcessingStatus] = useState<any>(null);
-  const [processingMessage, setProcessingMessage] = useState("");
-  const [componentBucketId, setComponentBucketId] = useState<string | null>(null);
-  const [activeBucketId, setActiveBucketId] = useState('');
+  // Mark unused variables with underscore
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_processingMessage, setProcessingMessage] = useState("");
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_componentBucketId, setComponentBucketId] = useState<string | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_activeBucketId, setActiveBucketId] = useState('');
   
   // Move useParams to the top level of the component
   const params = useParams();
@@ -338,7 +345,7 @@ const CreatePostDrawer: React.FC<CreatePostDrawerProps> = ({ bucketId, onClose, 
           setError(typeof errorMessage === 'object' ? JSON.stringify(errorMessage) : errorMessage);
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error processing source:', error);
       
       // Check if this is an authentication error
