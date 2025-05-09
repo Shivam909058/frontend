@@ -2873,7 +2873,7 @@ console.log("userDetails id", userDetails?.id)
       )}
       {showSourceModal && (
         <CreatePostDrawer
-          bucketId={currentBucket?.id}
+          bucketId={currentBucket?.id || ""}  // Add default empty string
           onClose={() => setShowSourceModal(false)}
           onSourceAdded={() => {
             // Refresh sources after adding

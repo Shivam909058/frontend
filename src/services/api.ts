@@ -94,7 +94,7 @@ export const refreshAuthToken = async (): Promise<string | null> => {
     
     console.error("Token refresh response has no session data");
     return null;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error refreshing token:', error);
     
     // Handle authentication errors
@@ -415,7 +415,7 @@ export const enhanceInstagramRetrieval = async (bucketId: string, question: stri
       console.log(`Found ${instagramSources.length} Instagram sources that should be included in retrieval`);
       
       // Log the sources for debugging
-      instagramSources.forEach((source, index) => {
+      instagramSources.forEach((source: any, index: number) => {
         console.log(`Instagram source ${index + 1}:`, {
           id: source.id,
           url: source.source_url,
@@ -531,11 +531,11 @@ export const checkSourceStatus = async (bucketId: string) => {
                       statusSummary.processing === 0 &&
                       totalSources > 0
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error checking source status:", error);
     return {
       success: false,
-      error: error.message,
+      error: error.message || "Unknown error",
       total_sources: 0,
       status_summary: { success: 0, processing: 0, pending: 0, failed: 0 },
       isFullyProcessed: false,
@@ -619,7 +619,7 @@ export const chatWithBucket = async (bucketId: string, question: string, chatHis
 };
 
 // Save chat message
-export const saveChatMessage = async (sessionId: string | object, message: string, sender: 'user' | 'llm') => {
+export const saveChatMessage = async (sessionId: string | { id: string } | object, message: string, sender: 'user' | 'llm') => {
   try {
     console.log(`Saving ${sender} message to session:`, sessionId);
     
@@ -630,9 +630,9 @@ export const saveChatMessage = async (sessionId: string | object, message: strin
     }
     
     // Make sure sessionId is a string
-    let sessionIdString = typeof sessionId === 'string' 
+    const sessionIdString = typeof sessionId === 'string' 
       ? sessionId 
-      : sessionId?.id || JSON.stringify(sessionId);
+      : 'id' in sessionId ? sessionId.id : JSON.stringify(sessionId);
     
     // Check and refresh token if needed
     const isTokenValid = await checkAndRefreshToken();
@@ -658,7 +658,7 @@ export const saveChatMessage = async (sessionId: string | object, message: strin
     });
     
     return response.data;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error saving message:', error);
     
     // Check if this is an authentication error
@@ -770,7 +770,7 @@ export const chatWithShakty = async (
     
     const data = await response.json();
     return data;
-  } catch (error) {
+  } catch (error: any) {
     if (error.name === 'AbortError') {
       return {
         answer: "I'm sorry, the request took too long to process. Please try asking a simpler question or try again later when all your sources have finished processing.",
@@ -780,7 +780,7 @@ export const chatWithShakty = async (
     
     console.error("Error in chat with Shakty:", error);
     return {
-      answer: `I encountered an error while trying to answer: ${error.message}. Please try again or add more sources if you're asking about content I don't have yet.`,
+      answer: `I encountered an error while trying to answer: ${error.message || "Unknown error"}. Please try again or add more sources if you're asking about content I don't have yet.`,
       sources: []
     };
   }
@@ -891,7 +891,7 @@ export const addSource = async (url: string, bucketId: string) => {
     
     const data = await response.json();
     return data;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error adding source:", error);
     
     if (error.response) {
