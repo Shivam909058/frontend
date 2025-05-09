@@ -46,14 +46,40 @@ function Otp({ close, onBack, emailId }: OtpProps) {
 
       if (otpError) throw otpError;
 
-      if (data?.session) {
-        localStorage.setItem(import.meta.env.VITE_TOKEN_ID, JSON.stringify(data.session));
-      } else {
+      // Check if we have session data
+      if (!data) {
         throw new Error("No session data received");
       }
 
-      const { user } = data;
-      if (!user) throw new Error("User data not found");
+      // Handle different data structures from verifyOtp and getSession
+      let session = null;
+      let user = null;
+
+      // Check what type of response we got
+      if ('session' in data) {
+        // If it's from getSession
+        session = data.session;
+        // Try to get user from session
+        if (session?.user) {
+          user = session.user;
+        } 
+      } else if ('user' in data) {
+        // If it's from verifyOtp
+        user = data.user;
+        session = data.session;
+      }
+
+      // Store session in localStorage if it exists
+      if (session) {
+        localStorage.setItem(import.meta.env.VITE_TOKEN_ID, JSON.stringify(session));
+      } else {
+        throw new Error("No session data available");
+      }
+
+      // Check if we have user data
+      if (!user) {
+        throw new Error("User data not found");
+      }
 
       const NEW_USER_THRESHOLD = 180000;
       const createdAt = new Date(user.created_at || 0).getTime();
@@ -89,6 +115,14 @@ function Otp({ close, onBack, emailId }: OtpProps) {
           setError("The server encountered an error. Please try again later.");
         } else if (err.message.includes("Invalid")) {
           setError("Invalid verification code. Please check and try again.");
+        } else if (err.message.includes("new verification code")) {
+          // This is our custom message about a new code being sent
+          setError(err.message);
+          // Reset OTP input
+          setOtp("");
+          // Reset countdown
+          resetCountdown();
+          startCountdown();
         } else {
           setError(err.message);
         }
@@ -98,7 +132,7 @@ function Otp({ close, onBack, emailId }: OtpProps) {
     } finally {
       setIsPending(false);
     }
-  }, [emailId, otp, navigate]);
+  }, [emailId, otp, navigate, resetCountdown, startCountdown]);
 
   const isResendActive = remainingTime === 0;
   const formattedTime = new Date(remainingTime * 1000)
