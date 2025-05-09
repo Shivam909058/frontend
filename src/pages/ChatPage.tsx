@@ -1431,11 +1431,13 @@ const ChatPage = () => {
                   <div className="w-[98px] h-[98px] bg-[#F87631] rounded-full flex items-center justify-center overflow-hidden">
                     {uploadedImageUrl ? (
                       <img
-                        src={`${
-                          import.meta.env.VITE_SUPABASE_URL
-                        }/storage/v1/object/public/img/${uploadedImageUrl}`}
+                        src={`${import.meta.env.VITE_SUPABASE_URL || "https://mhhmucxengkrgkwpecee.supabase.co"}/storage/v1/object/public/img/${uploadedImageUrl}`}
                         alt="Profile"
                         className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.onerror = null; // Prevent infinite error loop
+                          e.currentTarget.src = "/assets/bot.svg"; // Fallback image
+                        }}
                       />
                     ) : (
                       <div className="text-white">
@@ -1726,9 +1728,8 @@ const ChatPage = () => {
   }, [currentBucket]);
   const getBucketImageSrc = (bucket: any) => {
     if (!bucket.by_shakty && bucket.shakty_dp) {
-      return `${
-        import.meta.env.VITE_SUPABASE_URL
-      }/storage/v1/object/public/img/${bucket.shakty_dp}`;
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "https://mhhmucxengkrgkwpecee.supabase.co";
+      return `${supabaseUrl}/storage/v1/object/public/img/${bucket.shakty_dp}`;
     }
 
     const imageSrc = "/assets/";
@@ -2130,13 +2131,13 @@ console.log("userDetails id", userDetails?.id)
               <div className="bg-white flex items-center justify-center  rounded-full border-ui-90 w-7 h-7 overflow-hidden border-0.8">
                 {userDetails?.profile_picture_url ? (
                   <img
-                    src={`${
-                      import.meta.env.VITE_SUPABASE_URL
-                    }/storage/v1/object/public/img/${
-                      userDetails?.profile_picture_url
-                    }`}
+                    src={`${import.meta.env.VITE_SUPABASE_URL || "https://mhhmucxengkrgkwpecee.supabase.co"}/storage/v1/object/public/img/${userDetails.profile_picture_url}`}
                     alt="user image"
                     className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.onerror = null; // Prevent infinite error loop
+                      e.currentTarget.src = "/assets/bot.svg"; // Fallback image
+                    }}
                   />
                 ) : (
                   <img
@@ -2212,9 +2213,13 @@ console.log("userDetails id", userDetails?.id)
                       <div className="w-32 h-32 rounded-full overflow-hidden border-[4px] border-[#F87631] mb-4">
                         {currentBucket?.shakty_dp ? (
                           <img
-                            src={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/img/${currentBucket.shakty_dp}`}
+                            src={`${import.meta.env.VITE_SUPABASE_URL || "https://mhhmucxengkrgkwpecee.supabase.co"}/storage/v1/object/public/img/${currentBucket.shakty_dp}`}
                             alt={currentBucket.name}
                             className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.currentTarget.onerror = null; // Prevent infinite error loop
+                              e.currentTarget.src = "/assets/bot.svg"; // Fallback image
+                            }}
                           />
                         ) : (
                           <div className="w-30 h-32 bg-[#F87631] rounded-full flex items-center justify-center overflow-hidden">
@@ -2436,13 +2441,13 @@ console.log("userDetails id", userDetails?.id)
                             <>
                               {currentBucket?.shakty_dp ? (
                                 <img
-                                  src={`${
-                                    import.meta.env.VITE_SUPABASE_URL
-                                  }/storage/v1/object/public/img/${
-                                    currentBucket.shakty_dp
-                                  }`}
+                                  src={`${import.meta.env.VITE_SUPABASE_URL || "https://mhhmucxengkrgkwpecee.supabase.co"}/storage/v1/object/public/img/${currentBucket.shakty_dp}`}
                                   alt={currentBucket.name || "bot"}
                                   className="w-8 h-8 rounded-full object-cover mr-2"
+                                  onError={(e) => {
+                                    e.currentTarget.onerror = null; // Prevent infinite error loop
+                                    e.currentTarget.src = "/assets/bot.svg"; // Fallback image
+                                  }}
                                 />
                               ) : (
                                 <img
@@ -2507,13 +2512,13 @@ console.log("userDetails id", userDetails?.id)
                             <div className="flex-shrink-0 ml-2">
                               {userDetails?.profile_picture_url ? (
                                 <img
-                                  src={`${
-                                    import.meta.env.VITE_SUPABASE_URL
-                                  }/storage/v1/object/public/img/${
-                                    userDetails.profile_picture_url
-                                  }`}
+                                  src={`${import.meta.env.VITE_SUPABASE_URL || "https://mhhmucxengkrgkwpecee.supabase.co"}/storage/v1/object/public/img/${userDetails.profile_picture_url}`}
                                   alt="user"
                                   className="w-8 h-8 rounded-full object-cover"
+                                  onError={(e) => {
+                                    e.currentTarget.onerror = null; // Prevent infinite error loop
+                                    e.currentTarget.src = "/assets/bot.svg"; // Fallback image
+                                  }}
                                 />
                               ) : (
                                 <div className="border-[0.8px] border-[#564d48] rounded-full w-full h-full flex items-center justify-center">
@@ -2538,13 +2543,13 @@ console.log("userDetails id", userDetails?.id)
                             <div className="flex justify-start items-start">
                               {currentBucket?.shakty_dp ? (
                                 <img
-                                  src={`${
-                                    import.meta.env.VITE_SUPABASE_URL
-                                  }/storage/v1/object/public/img/${
-                                    currentBucket.shakty_dp
-                                  }`}
+                                  src={`${import.meta.env.VITE_SUPABASE_URL || "https://mhhmucxengkrgkwpecee.supabase.co"}/storage/v1/object/public/img/${currentBucket.shakty_dp}`}
                                   alt={currentBucket.name || "bot"}
                                   className="w-8 h-8 rounded-full object-cover mr-2"
+                                  onError={(e) => {
+                                    e.currentTarget.onerror = null; // Prevent infinite error loop
+                                    e.currentTarget.src = "/assets/bot.svg"; // Fallback image
+                                  }}
                                 />
                               ) : (
                                 <img
