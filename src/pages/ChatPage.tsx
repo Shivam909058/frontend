@@ -317,23 +317,6 @@ const ChatPage = () => {
     }
   };
 
-  // Add this new function near the top of the component
-  const streamResponse = (message: string, setMessageCallback: (content: string) => void) => {
-    const tokens = message.split(/(\s+)/);  // Split by whitespace but keep the spaces
-    let currentIndex = 0;
-
-    const streamInterval = setInterval(() => {
-      if (currentIndex < tokens.length) {
-        setMessageCallback(tokens.slice(0, currentIndex + 1).join(''));
-        currentIndex++;
-      } else {
-        clearInterval(streamInterval);
-      }
-    }, 1); // Adjust timing as needed (1ms between tokens)
-
-    return () => clearInterval(streamInterval); // Cleanup function
-  };
-
   // Update the processInstagram function to match the API expectations
   const processInstagram = async (url: string, bucketId: string): Promise<any> => {
     try {
@@ -566,8 +549,8 @@ const ChatPage = () => {
     try {
       console.log(`Creating new chat session for bucket: ${bucketId}, topic: ${topic}`);
       
-      // Use nullish coalescing to provide a default empty string
-      const bucketIdParam = bucketId ?? "";
+      // Get a string bucket ID to use in the API call
+      const bucketIdParam: string = bucketId === undefined || bucketId === null ? "" : bucketId;
       
       const response = await axios.post(
         `${API_URL}/api/chat/session/create`,
@@ -700,9 +683,10 @@ const ChatPage = () => {
           
           if (typeof newSessionId === 'string') {
             sessionIdToUse = newSessionId;
-          } else if (newSessionId && typeof newSessionId === 'object' && newSessionId !== null) {
-            // Check if it has an id property
-            sessionIdToUse = 'id' in newSessionId ? String((newSessionId as {id: string}).id) : String(newSessionId);
+          } else if (typeof newSessionId === 'object' && newSessionId !== null) {
+            // Use a type assertion to get the id property
+            const typedObj = newSessionId as Record<string, any>;
+            sessionIdToUse = typedObj.id ? String(typedObj.id) : String(newSessionId);
           } else {
             sessionIdToUse = String(newSessionId);
           }
@@ -1913,16 +1897,8 @@ console.log("userDetails id", userDetails?.id)
 
   // Then, add this useEffect to keep activeBucketId in sync with currentBucket
   useEffect(() => {
-    if (currentBucket) {
-      setActiveBucketId(currentBucket.id);
-    }
-  }, [currentBucket]);
-
-  // Set active bucket ID when current bucket changes
-  useEffect(() => {
     if (currentBucket?.id) {
-      console.log(`Setting active bucket ID to: ${currentBucket.id}`);
-      setActiveBucketId(currentBucket.id);
+      console.log(`Current bucket ID: ${currentBucket.id}`);
     }
   }, [currentBucket]);
 
