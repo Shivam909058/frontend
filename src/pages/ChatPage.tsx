@@ -334,7 +334,7 @@ const ChatPage = () => {
   };
 
   // Update the processInstagram function to match the API expectations
-  const processInstagram = async (url, bucketId) => {
+  const processInstagram = async (url: string, bucketId: string) => {
     try {
       console.log("Processing Instagram URL:", url);
       
@@ -393,7 +393,7 @@ const ChatPage = () => {
       }
       
       return response.data;
-    } catch (error) {
+    } catch (error: any) { // Fix for error type
       // Handle 401 error - token expired
       if (axios.isAxiosError(error) && error.response?.status === 401) {
         console.log("Authentication token expired, attempting to refresh...");
@@ -432,10 +432,7 @@ const ChatPage = () => {
       
       // Try to validate the token with Supabase
       try {
-        const supabase = createClient(
-          import.meta.env.VITE_SUPABASE_URL,
-          import.meta.env.VITE_SUPABASE_ANON_KEY
-        );
+        // Use the imported supabase instance instead of creating a new one
         
         // First check if the token is still valid
         const { data: userData, error: userError } = await supabase.auth.getUser(token);
@@ -469,11 +466,11 @@ const ChatPage = () => {
           console.error("No token in refresh response");
           return false;
         }
-      } catch (error) {
+      } catch (error: any) { // Fix error type
         console.error("Error during token validation/refresh:", error);
         return false;
       }
-    } catch (error) {
+    } catch (error: any) { // Fix error type
       console.error("Error in checkAndRefreshToken:", error);
       return false;
     }
@@ -568,13 +565,13 @@ const ChatPage = () => {
     try {
       console.log(`Creating new chat session for bucket: ${bucketId}, topic: ${topic}`);
       
-      const response = await apiClient.post(
-        `/api/chat/session/create`,
-        null,
+      const response = await axios.post(
+        `${API_URL}/api/chat/session/create`,
+        { topic },
         {
-          params: {
-            bucket_id: bucketId,
-            topic: topic
+          params: { bucket_id: bucketId || "" }, // Add default empty string
+          headers: {
+            Authorization: `Bearer ${token}`
           }
         }
       );
@@ -591,7 +588,7 @@ const ChatPage = () => {
   };
 
   // Now define fetchAndProcessAIResponse which uses createChatSession
-  const fetchAndProcessAIResponse = useCallback(async (question, sessionId = null) => {
+  const fetchAndProcessAIResponse = useCallback(async (question: string, sessionId = null) => {
     setIsLoading(true);
     
     try {
@@ -647,7 +644,7 @@ const ChatPage = () => {
       if (!sessionId) {
         try {
           // If the API returns an object with session_id
-          const session = await createChatSession(bucketIdToUse, "Chat session");
+          const session = await createChatSession(bucketIdToUse!, "Chat session");
           
           // Make sure you're extracting just the session_id string
           newSessionId = session.session_id; // or session.id, depending on your API response
@@ -666,7 +663,7 @@ const ChatPage = () => {
       const aiResponse = await chatWithShakty(
         bucketIdToUse,
         question,
-        chatHistory.slice(-4) // Use last 4 exchanges for context
+        chatHistory.slice(-4) as [string, string][] // Type assertion
       );
       
       console.log("Raw AI response:", aiResponse);
@@ -695,7 +692,11 @@ const ChatPage = () => {
       if (newSessionId) {
         try {
           // Make sure we're passing a string, not an object
-          const sessionIdToUse = typeof newSessionId === 'string' ? newSessionId : newSessionId.id || String(newSessionId);
+          const sessionIdToUse = typeof newSessionId === 'string' 
+            ? newSessionId 
+            : (newSessionId && typeof newSessionId === 'object' && 'id' in newSessionId 
+                ? (newSessionId as {id: string}).id 
+                : String(newSessionId));
           
           await saveChatMessage(sessionIdToUse, question, 'user');
           await saveChatMessage(sessionIdToUse, responseText, 'llm');
@@ -733,7 +734,7 @@ const ChatPage = () => {
   }, [currentBucket, messages, checkSourceStatus, saveChatMessage, createChatSession, chatWithShakty]);
 
   // Update the fetchWithRetry function
-  const fetchWithRetry = async (
+  const _fetchWithRetry = async (
     url: string,
     options: RequestInit,
     maxRetries = 3
@@ -963,7 +964,7 @@ const ChatPage = () => {
             character_name: sessionData.buckets.character_name,
             isPublic: sessionData.buckets.isPublic,
             is_verified: sessionData.buckets.is_verified,
-          };
+          } as Bucket;
           
           setCurrentBucket(bucket);
           await fetchBucketData(sessionData.buckets.id);
