@@ -15,7 +15,6 @@ import CreatePostDrawer from '../modules/feed/components/CreatePostDrawer';
 import LoginButton from "../components/shakty_homepage_components/LoginButton";
 import axios from "axios";
 // Import the apiClient from our services
-import { apiClient } from '../services/api';
 import { chatWithShakty, saveChatMessage } from '../services/api';
 import { checkSourceStatus } from '../services/api';
 
@@ -575,7 +574,10 @@ const ChatPage = () => {
   };
 
   // Now define fetchAndProcessAIResponse which uses createChatSession
-  const fetchAndProcessAIResponse = useCallback(async (question: string, sessionId = null) => {
+  const fetchAndProcessAIResponse = useCallback(async (
+    question: string, 
+    sessionId: string | null = null
+  ) => {
     setIsLoading(true);
     
     try {
@@ -742,7 +744,12 @@ const ChatPage = () => {
       // Make sure we have a session ID as a string
       let sessionIdToUse = currentSessionId;
       if (typeof sessionIdToUse !== 'string' && sessionIdToUse) {
-        sessionIdToUse = sessionIdToUse.id || String(sessionIdToUse);
+        // Use safer type guard and assertion
+        if (typeof sessionIdToUse === 'object' && sessionIdToUse !== null && 'id' in sessionIdToUse) {
+          sessionIdToUse = (sessionIdToUse as {id: string}).id;
+        } else {
+          sessionIdToUse = String(sessionIdToUse);
+        }
       }
       
       try {
