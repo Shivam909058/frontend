@@ -1258,46 +1258,19 @@ const ChatPage = () => {
       }
 
       try {
-        const getUserName = async () => {
-          try {
-            // Use the enhanced Supabase client
-            const { data: userData, error: userError } = await supabase
-              .from("users")
-              .select("username, name")  // Include name as well
-              .eq("id", userId)
-              .headers({
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-                'apikey': supabase.supabaseKey,
-                'Prefer': 'return=representation'
-              })
-              .single();
-
-            if (userError) {
-              console.error("User data fetch error:", userError);
-              throw new Error("Could not fetch user data");
-            }
-
-            if (!userData || !userData.username) {
-              // If username is not available, generate one based on name or use a fallback
-              let fallbackUsername = "user";
-              if (userData && userData.name) {
-                fallbackUsername = userData.name.toLowerCase().replace(/\s+/g, "-");
-              }
-              return fallbackUsername;
-            }
-
-            return userData.username;
-          } catch (error) {
-            console.error("Error in getUserName:", error);
-            // Return a fallback username to avoid breaking the app
-            return `user-${Date.now()}`;
-          }
-        };
-
-        const username = await getUserName();
+        // Get username from localStorage directly
+        const token = localStorage.getItem(`${import.meta.env.VITE_TOKEN_ID}`);
+        const parsedToken = token ? JSON.parse(token) : null;
+        const userEmail = parsedToken?.user?.email;
+        
+        // Generate a simple username based on email
+        let username = "user";
+        if (userEmail) {
+          username = userEmail.split('@')[0].toLowerCase();
+        }
+        
         // Create URL-friendly versions of username and shakty name
-        const urlFriendlyUsername = username.toLowerCase();
+        const urlFriendlyUsername = username.replace(/[^a-z0-9]/g, '-');
         const urlFriendlyShaktyName = name.toLowerCase().replace(/\s+/g, "-");
         const share_id = `${urlFriendlyUsername}/${urlFriendlyShaktyName}`;
 
