@@ -2,14 +2,31 @@ import { useState, useEffect } from 'react';
 import { checkSourceStatus } from '../../../services/api';
 
 const SourceStatus = ({ bucketId }: { bucketId: string }) => {
-  const [status, setStatus] = useState<any>(null);
+  const [status, setStatus] = useState<{
+    sources?: {
+      success?: any[];
+      processing?: any[];
+      pending?: any[];
+      failed?: any[];
+    };
+    total_sources?: number;
+    status_summary?: {
+      success: number;
+      processing: number;
+      pending: number;
+      failed: number;
+    };
+    completionPercentage?: number;
+    isFullyProcessed?: boolean;
+    recent_logs?: string;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [pollCount, setPollCount] = useState(0);
+  const [intervalId, setIntervalId] = useState<ReturnType<typeof setInterval> | undefined>();
   
   useEffect(() => {
     let mounted = true;
-    let intervalId: ReturnType<typeof setInterval> | undefined;
     
     const fetchStatus = async () => {
       try {
@@ -111,12 +128,12 @@ const SourceStatus = ({ bucketId }: { bucketId: string }) => {
         <>
           <div className="grid grid-cols-2 gap-4 mb-4">
             <div className="bg-gray-50 p-3 rounded-md">
-              <p className="text-sm font-medium">Total sources: {status?.total_sources || 0}</p>
+              <p className="text-sm font-medium">Total sources: {status?.total_sources ?? 0}</p>
               <div className="mt-2 space-y-1">
-                <p className="text-sm text-green-600">✓ Processed: {status?.status_summary?.success || 0}</p>
-                <p className="text-sm text-yellow-600">⟳ Processing: {status?.status_summary?.processing || 0}</p>
-                <p className="text-sm text-blue-600">⏱ Pending: {status?.status_summary?.pending || 0}</p>
-                <p className="text-sm text-red-600">✗ Failed: {status?.status_summary?.failed || 0}</p>
+                <p className="text-sm text-green-600">✓ Processed: {status?.status_summary?.success ?? 0}</p>
+                <p className="text-sm text-yellow-600">⟳ Processing: {status?.status_summary?.processing ?? 0}</p>
+                <p className="text-sm text-blue-600">⏱ Pending: {status?.status_summary?.pending ?? 0}</p>
+                <p className="text-sm text-red-600">✗ Failed: {status?.status_summary?.failed ?? 0}</p>
               </div>
             </div>
             
@@ -126,10 +143,10 @@ const SourceStatus = ({ bucketId }: { bucketId: string }) => {
               <div className="w-full bg-gray-200 rounded-full h-2.5">
                 <div 
                   className="bg-green-600 h-2.5 rounded-full" 
-                  style={{width: `${status?.completionPercentage || 0}%`}}
+                  style={{width: `${status?.completionPercentage ?? 0}%`}}
                 ></div>
               </div>
-              <p className="text-xs text-right mt-1">{status?.completionPercentage || 0}% complete</p>
+              <p className="text-xs text-right mt-1">{status?.completionPercentage ?? 0}% complete</p>
             </div>
           </div>
           
@@ -140,13 +157,13 @@ const SourceStatus = ({ bucketId }: { bucketId: string }) => {
                 <span className="font-medium">✓ All sources processed!</span> You can now ask questions about your content.
               </p>
             </div>
-          ) : ((status?.status_summary?.success || 0) > 0) ? (
+          ) : ((status?.status_summary?.success ?? 0) > 0) ? (
             <div className="bg-yellow-50 p-3 rounded-md mb-4">
               <p className="text-sm text-yellow-800">
                 <span className="font-medium">⚠️ Some sources are ready</span> You can start asking questions, but some content is still processing.
               </p>
             </div>
-          ) : ((status?.total_sources || 0) > 0) ? (
+          ) : ((status?.total_sources ?? 0) > 0) ? (
             <div className="bg-blue-50 p-3 rounded-md mb-4">
               <p className="text-sm text-blue-800">
                 <span className="font-medium">⏱️ Processing in progress</span> Please wait for your sources to be processed before asking questions.
@@ -160,7 +177,7 @@ const SourceStatus = ({ bucketId }: { bucketId: string }) => {
             </div>
           )}
           
-          {(status?.status_summary?.success || 0) > 0 && (
+          {(status?.status_summary?.success ?? 0) > 0 && (
             <div className="bg-green-50 p-3 rounded-md">
               <p className="text-sm font-medium text-green-800">Your Shakty can now answer questions about:</p>
               <ul className="mt-2 space-y-1 text-sm">
@@ -169,18 +186,18 @@ const SourceStatus = ({ bucketId }: { bucketId: string }) => {
                     {getSourceTypeIcon(source)} {source.source_message || source.source_url}
                   </li>
                 ))}
-                {(status?.sources?.success?.length || 0) > 3 && (
+                {(status?.sources?.success?.length ?? 0) > 3 && (
                   <li className="text-gray-500">...and {status.sources.success.length - 3} more</li>
                 )}
               </ul>
             </div>
           )}
           
-          {((status?.sources?.processing?.length || 0) > 0 || (status?.sources?.pending?.length || 0) > 0) && (
+          {((status?.sources?.processing?.length ?? 0) > 0 || (status?.sources?.pending?.length ?? 0) > 0) && (
             <div className="mb-4">
               <h4 className="text-sm font-medium mb-2">In Progress</h4>
               <ul className="space-y-2">
-                {[...(status?.sources?.processing || []), ...(status?.sources?.pending || [])].slice(0, 5).map((source: any) => (
+                {[...(status?.sources?.processing ?? []), ...(status?.sources?.pending ?? [])].slice(0, 5).map((source: any) => (
                   <li key={source.id} className="text-sm flex items-center">
                     <span className="mr-2 inline-block animate-pulse">⟳</span>
                     <span className="truncate">{source.source_message || source.source_url}</span>
@@ -190,7 +207,7 @@ const SourceStatus = ({ bucketId }: { bucketId: string }) => {
             </div>
           )}
           
-          {(status?.sources?.failed?.length || 0) > 0 && (
+          {(status?.sources?.failed?.length ?? 0) > 0 && (
             <div className="bg-red-50 p-3 rounded-md mb-4">
               <h4 className="text-sm font-medium text-red-800 mb-2">Failed Sources</h4>
               <ul className="space-y-1">

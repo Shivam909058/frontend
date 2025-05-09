@@ -84,7 +84,7 @@ const styles = {
     borderRadius: '4px',
     fontSize: '1rem',
     minHeight: '150px',
-    resize: 'vertical' as 'vertical',
+    resize: 'vertical' as const,
     marginBottom: '8px',
   },
   info: {
@@ -139,31 +139,6 @@ interface CreatePostDrawerProps {
   onClose: () => void;
   onSourceAdded?: () => void;
 }
-
-/* Unused function
-function extractContentTopic(url: string): string {
-  if (url.includes('instagram.com')) {
-    // Extract username or post context from Instagram URL
-    const match = url.match(/instagram\.com\/([\w\.]+)/);
-    if (match && match[1]) {
-      return `Instagram content from ${match[1]}`;
-    }
-    return 'Instagram content';
-  }
-  
-  if (url.includes('youtube.com') || url.includes('youtu.be')) {
-    return 'YouTube video';
-  }
-  
-  // Extract domain for general URLs
-  try {
-    const domain = new URL(url).hostname.replace('www.', '');
-    return `Content from ${domain}`;
-  } catch (e) {
-    return 'Web content';
-  }
-}
-*/
 
 const CreatePostDrawer: React.FC<CreatePostDrawerProps> = ({ bucketId, onClose, onSourceAdded }) => {
   const [url, setUrl] = useState<string>('');
@@ -345,19 +320,18 @@ const CreatePostDrawer: React.FC<CreatePostDrawerProps> = ({ bucketId, onClose, 
           setError(typeof errorMessage === 'object' ? JSON.stringify(errorMessage) : errorMessage);
         }
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error processing source:', error);
       
-      // Check if this is an authentication error
-      if (error.message?.includes('auth') || error.response?.status === 401 || error.response?.status === 403) {
-        setError('Authentication error. Please log in again.');
-        setTimeout(() => {
-          window.location.href = '/login';
-        }, 2000);
-        return;
+      // Type guard for error
+      if (error instanceof Error) {
+        setError(error.message || 'An error occurred');
+      } else if (typeof error === 'object' && error !== null && 'message' in error) {
+        // Try to get error message from object
+        setError((error as { message: string }).message);
+      } else {
+        setError('An unexpected error occurred');
       }
-      
-      setError(error.message || 'An error occurred while processing the source');
     } finally {
       setIsProcessing(false);
     }

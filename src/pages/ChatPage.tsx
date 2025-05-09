@@ -461,88 +461,88 @@ const ChatPage = () => {
   };
 
   // Then define handleSessionCreation
-  const handleSessionCreation = async (sessionId: string | undefined, userMessage: string, aiResponse: string) => {
-    try {
-      // If no session ID was provided, create a new one
-      if (!sessionId) {
-        console.log("No session ID provided, creating new session");
-        const token = getAccessToken();
+  // const handleSessionCreation = async (sessionId: string | undefined, userMessage: string, aiResponse: string) => {
+  //   try {
+  //     // If no session ID was provided, create a new one
+  //     if (!sessionId) {
+  //       console.log("No session ID provided, creating new session");
+  //       const token = getAccessToken();
         
-        if (!token) {
-          console.error("No authentication token found");
-          return;
-        }
+  //       if (!token) {
+  //         console.error("No authentication token found");
+  //         return;
+  //       }
         
-        // Create a new chat session
-        try {
-          const sessionResponse = await apiClient.post(
-            `/api/chat/session/create`,
-            null,
-            {
-              params: {
-          bucket_id: currentBucket?.id,
-                topic: "New conversation"
-              }
-            }
-          );
-          
-          if (sessionResponse.data && sessionResponse.data.session_id) {
-            sessionId = sessionResponse.data.session_id;
-            console.log(`Created new session: ${sessionId}`);
-            
-            // Store the session ID in the URL for sharing/persistence
-            const url = new URL(window.location.href);
-            url.searchParams.set('sessionId', sessionId);
-            window.history.replaceState({}, '', url.toString());
-          }
-        } catch (error) {
-          console.error("Failed to create chat session:", error);
-          // Continue without a session - messages won't be saved
-        }
-      }
-      
-      // If we have a session ID, store the messages
-      if (sessionId) {
-        try {
-          // Store both messages in parallel
-          await Promise.all([
-            // Store user message
-            apiClient.post(
-              `/api/chat/message`,
-              null,
-              {
-                params: {
-                  session_id: sessionId,
-                  message: userMessage,
-                  sender: "user"
-                }
-              }
-            ),
-            // Store AI response
-            apiClient.post(
-              `/api/chat/message`,
-              null,
-              {
-                params: {
-                  session_id: sessionId,
-                  message: aiResponse,
-                  sender: "llm"
-                }
-              }
-            )
-          ]);
-          
-          console.log("Stored messages in session:", sessionId);
-        } catch (error) {
-          console.error("Failed to store messages:", error);
-          // Don't throw here - we don't want to disrupt the chat experience
-        }
-      }
-    } catch (error) {
-      console.error("Error in session creation:", error);
-      // Don't throw here to avoid disrupting the app
-    }
-  };
+  //       // Create a new chat session
+  //       try {
+  //         const sessionResponse = await apiClient.post(
+  //           `/api/chat/session/create`,
+  //           null,
+  //           {
+  //             params: {
+  //       bucket_id: currentBucket?.id,
+  //               topic: "New conversation"
+  //             }
+  //           }
+  //         );
+        
+  //         if (sessionResponse.data && sessionResponse.data.session_id) {
+  //           sessionId = sessionResponse.data.session_id;
+  //           console.log(`Created new session: ${sessionId}`);
+        
+  //           // Store the session ID in the URL for sharing/persistence
+  //           const url = new URL(window.location.href);
+  //           url.searchParams.set('sessionId', sessionId);
+  //           window.history.replaceState({}, '', url.toString());
+  //         }
+  //       } catch (error) {
+  //         console.error("Failed to create chat session:", error);
+  //         // Continue without a session - messages won't be saved
+  //       }
+  //     }
+        
+  //     // If we have a session ID, store the messages
+  //     if (sessionId) {
+  //       try {
+  //         // Store both messages in parallel
+  //         await Promise.all([
+  //           // Store user message
+  //           apiClient.post(
+  //             `/api/chat/message`,
+  //             null,
+  //             {
+  //               params: {
+  //                 session_id: sessionId,
+  //                 message: userMessage,
+  //                 sender: "user"
+  //               }
+  //             }
+  //           ),
+  //           // Store AI response
+  //           apiClient.post(
+  //             `/api/chat/message`,
+  //             null,
+  //             {
+  //               params: {
+  //                 session_id: sessionId,
+  //                 message: aiResponse,
+  //                 sender: "llm"
+  //               }
+  //             }
+  //           )
+  //         ]);
+        
+  //         console.log("Stored messages in session:", sessionId);
+  //       } catch (error) {
+  //         console.error("Failed to store messages:", error);
+  //         // Don't throw here - we don't want to disrupt the chat experience
+  //       }
+  //     }
+  //   } catch (error) {
+  //     console.error("Error in session creation:", error);
+  //     // Don't throw here to avoid disrupting the app
+  //   }
+  // };
 
   // Move this function up before fetchAndProcessAIResponse
   const createChatSession = async (bucketId: string | null | undefined, topic: string) => {
@@ -642,9 +642,9 @@ const ChatPage = () => {
       }
       
       // Get chat history (previous messages for context)
-      const chatHistory: [string, string][] = messages
+      const chatHistory = messages
         .filter(msg => msg.role !== "user" || msg.content !== messages[0].content)
-        .map(msg => [msg.role === "user" ? "Human" : "AI", msg.content]);
+        .map(msg => [msg.role === "user" ? "Human" : "AI", msg.content] as [string, string]);
       
       // Send the request to the AI
       const aiResponse = await chatWithShakty(
@@ -684,8 +684,8 @@ const ChatPage = () => {
           if (typeof newSessionId === 'string') {
             sessionIdToUse = newSessionId;
           } else if (typeof newSessionId === 'object' && newSessionId !== null) {
-            // Use a type assertion to get the id property
-            const typedObj = newSessionId as Record<string, any>;
+            // Use a Record type to bypass the "never" issue
+            const typedObj = newSessionId as Record<string, unknown>;
             sessionIdToUse = typedObj.id ? String(typedObj.id) : String(newSessionId);
           } else {
             sessionIdToUse = String(newSessionId);
@@ -725,114 +725,6 @@ const ChatPage = () => {
       setIsLoading(false);
     }
   }, [currentBucket, messages, checkSourceStatus, saveChatMessage, createChatSession, chatWithShakty]);
-
-  // Update the fetchWithRetry function
-  const _fetchWithRetry = async (
-    url: string,
-    options: RequestInit,
-    maxRetries = 3
-  ) => {
-    let lastError;
-    const startTime = Date.now();
-
-    for (let i = 0; i < maxRetries; i++) {
-      try {
-        // Log retry attempt
-        if (i > 0) {
-          console.log(`Retry attempt ${i+1}/${maxRetries} for ${url}`);
-        }
-
-        // Check token before each attempt
-        const isTokenValid = await checkAndRefreshToken();
-        if (!isTokenValid) {
-          throw new Error("Authentication failed");
-        }
-
-        // Get token using helper function
-        const token = getAccessToken();
-        if (!token) {
-          throw new Error("No valid token available");
-        }
-        
-        options.headers = {
-          ...options.headers,
-          Authorization: `Bearer ${token}`,
-        };
-
-        // Create a copy of options with a separate abort controller for this specific attempt
-        // This prevents the timeout from one attempt affecting retries
-        const attemptOptions = { ...options };
-        if (options.signal) {
-          // Use the original signal for the first attempt only
-          if (i > 0) {
-            const attemptController = new AbortController();
-            // Create a timeout specific to this retry
-            const attemptTimeoutId = setTimeout(() => {
-              attemptController.abort();
-              console.log(`Retry attempt ${i+1} timed out`);
-            }, 30000); // 30 second timeout for retries
-            
-            attemptOptions.signal = attemptController.signal;
-            
-            // Clean up on response or error
-            setTimeout(() => clearTimeout(attemptTimeoutId), 35000);
-          }
-        }
-
-        const response = await fetch(url, attemptOptions);
-
-        if (response.ok) {
-          const endTime = Date.now();
-          console.log(`Request to ${url} successful after ${endTime - startTime}ms with ${i} retries`);
-          return response;
-        }
-
-        // Handle specific error codes
-        if (response.status === 401) {
-          // Try token refresh on 401
-          const refreshed = await checkAndRefreshToken();
-          if (!refreshed) {
-            throw new Error("Authentication failed after refresh attempt");
-          }
-          continue; // Retry with new token
-        }
-
-        if (response.status === 429) {
-          // Rate limit - wait longer before retry
-          const waitTime = (i + 1) * 2000;
-          console.log(`Rate limited (429), waiting ${waitTime}ms before retry`);
-          await new Promise((resolve) => setTimeout(resolve, waitTime));
-          continue;
-        }
-
-        throw new Error(`HTTP error! status: ${response.status}`);
-      } catch (error) {
-        lastError = error;
-        console.log(`Fetch error on attempt ${i+1}: ${error instanceof Error ? error.message : String(error)}`);
-        
-        if (i === maxRetries - 1) break;
-
-        // Check if we should retry based on error type
-        if (error instanceof Error) {
-          if (error.name === "AbortError") {
-            console.log("Request was aborted, trying again with longer timeout");
-          } else if (error.message.includes("network")) {
-            console.log("Network error detected, retry may help");
-          }
-        }
-
-        // Exponential backoff with jitter for more effective retries
-        const baseDelay = Math.pow(2, i) * 1000;
-        const jitter = Math.random() * 1000;
-        const delay = baseDelay + jitter;
-        
-        console.log(`Waiting ${delay}ms before retry attempt ${i+2}`);
-        await new Promise((resolve) => setTimeout(resolve, delay));
-      }
-    }
-
-    throw lastError || new Error("Request failed after max retries");
-  };
 
   // Update the handleSubmit function
   const handleSubmit = useCallback(
@@ -1891,9 +1783,6 @@ const ChatPage = () => {
   }, [location.search, location.state]); // Add dependencies
 console.log("bucket created_by", currentBucket?.created_by)
 console.log("userDetails id", userDetails?.id)
-
-  // Add this line at the beginning of the ChatPage component, right after your other state declarations:
-  
 
   // Then, add this useEffect to keep activeBucketId in sync with currentBucket
   useEffect(() => {
