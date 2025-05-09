@@ -51,22 +51,24 @@ function Otp({ close, onBack, emailId }: OtpProps) {
         throw new Error("No session data received");
       }
 
-      // Handle different data structures from verifyOtp and getSession
+      // Type assertion to handle the type error
       let session = null;
       let user = null;
 
-      // Check what type of response we got
-      if ('session' in data) {
-        // If it's from getSession
-        session = data.session;
-        // Try to get user from session
-        if (session?.user) {
+      // Safely extract user and session with type guards
+      if (data && typeof data === 'object') {
+        if ('session' in data) {
+          // It's from auth response
+          session = data.session;
+        }
+
+        if ('user' in data) {
+          // It's from verifyOtp
+          user = data.user;
+        } else if (session && 'user' in session) {
+          // Try to get user from session
           user = session.user;
-        } 
-      } else if ('user' in data) {
-        // If it's from verifyOtp
-        user = data.user;
-        session = data.session;
+        }
       }
 
       // Store session in localStorage if it exists
@@ -87,14 +89,18 @@ function Otp({ close, onBack, emailId }: OtpProps) {
       const isNewUser = Math.abs(createdAt - lastSignInAt) < NEW_USER_THRESHOLD;
 
       if (isNewUser) {
-        // Use try/catch for welcome email to prevent blocking the authentication
+        // Call the sendWelcomeEmail function
         try {
-          await supabase.functions.invoke("sendWelcomeEmail", {
-            body: { email: user.email },
-          });
-        } catch (welcomeError) {
-          console.error("Error sending welcome email:", welcomeError);
-          // Continue despite welcome email error
+          const { error: welcomeEmailError } = await supabase.functions.invoke(
+            "sendWelcomeEmail",
+            {
+              body: { email: user.email },
+            }
+          );
+
+          if (welcomeEmailError) console.error("Welcome email error:", welcomeEmailError);
+        } catch (error) {
+          console.error("Error sending welcome email:", error);
         }
 
         navigate("/profile");
@@ -110,29 +116,15 @@ function Otp({ close, onBack, emailId }: OtpProps) {
       }
     } catch (err: unknown) {
       if (err instanceof Error) {
-        // Provide more user-friendly error messages
-        if (err.message.includes("500")) {
-          setError("The server encountered an error. Please try again later.");
-        } else if (err.message.includes("Invalid")) {
-          setError("Invalid verification code. Please check and try again.");
-        } else if (err.message.includes("new verification code")) {
-          // This is our custom message about a new code being sent
-          setError(err.message);
-          // Reset OTP input
-          setOtp("");
-          // Reset countdown
-          resetCountdown();
-          startCountdown();
-        } else {
-          setError(err.message);
-        }
+        // Use the original error handling
+        setError(err.message);
       } else {
-        setError("An unknown error occurred. Please try again.");
+        setError("An unknown error occurred.");
       }
     } finally {
       setIsPending(false);
     }
-  }, [emailId, otp, navigate, resetCountdown, startCountdown]);
+  }, [emailId, otp, navigate]);
 
   const isResendActive = remainingTime === 0;
   const formattedTime = new Date(remainingTime * 1000)
