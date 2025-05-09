@@ -1,0 +1,82 @@
+@use "./base";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.post-description {
+  white-space: pre-wrap;
+}
+
+.button-primary {
+  background-color: var(--primary);
+  @apply text-white py-3 px-4 rounded-md font-medium;
+}
+
+.header {
+  @apply backdrop-blur-[50px] shadow-searchShadow flex flex-row px-4 py-2 h-[61px] lg:h-auto items-center border-[0.5px] border-solid border-[#00000040] lg:border-0 shadow-md lg:shadow-none bg-white mx-auto justify-between w-full;
+}
+
+.left-nav {
+  @apply fixed top-0 left-0 right-0 z-50 bg-white;
+
+  @screen lg {
+    @apply relative w-[350px];
+  }
+}
+
+.chat-box {
+  @apply sticky lg:fixed bottom-0 left-0 lg:left-auto right-0 lg:right-3 z-30 bg-white lg:bg-transparent;
+
+  @screen lg {
+    width: calc(100% - 380px);
+  }
+}
+
+.chat-page {
+  .chat-list {
+    @screen lg {
+      max-height: calc(100vh - 300px);
+    }
+  }
+}
+
+.chat-card {
+  @apply relative inline-block font-lexend text-[13px] lg:text-[15px] font-normal leading-5 mb-2;
+}
+
+.text-left .chat-card.readmore {
+  max-height: 200px;
+  overflow: hidden;
+
+  @screen lg {
+    max-height: 350px;
+  }
+}
+
+.text-right .chat-card.readmore {
+  max-height: 100px;
+  overflow: hidden;
+
+  @screen lg {
+    max-height: 170px;
+  }
+}
+
+.read-more {
+  @apply hidden;
+}
+
+.readmore .read-more {
+  display: block;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  z-index: 11;
+  color: var(--primary);
+  font-weight: 600;
+  width: 100%;
+  background: var(--white);
+  text-align: right;
+  padding-right: 10px;
+  padding-bottom: 2px;
+}

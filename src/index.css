@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.post-description {
+  white-space: pre-wrap;
+}
+
+body {
+  background: radial-gradient(
+    50% 50% at 50% 50%,
+    rgba(248, 118, 49, 0.3) 0%,
+    rgba(248, 118, 49, 0) 100%
+  );
+}
+
+.chat-page {
+  height: 100vh; /* Fallback */
+  height: calc(var(--vh, 1vh) * 100);
+}
+
+.chat-box {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  z-index: 40;
+  /* Add padding to account for iOS home indicator */
+  padding-bottom: env(safe-area-inset-bottom);
+}
+

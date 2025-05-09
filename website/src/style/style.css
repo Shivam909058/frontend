@@ -1,0 +1,187 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: "ClashDisplay-Variable";
+  src:
+    url("/fonts/ClashDisplay-Variable.woff2") format("woff2"),
+    url("/fonts/ClashDisplay-Variable.woff") format("woff"),
+    url("/fonts/ClashDisplay-Variable.ttf") format("truetype");
+  font-weight: 200 700;
+  font-display: swap;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: "GeneralSans-Variable";
+  src:
+    url("/fonts/GeneralSans-Variable.woff2") format("woff2"),
+    url("/fonts/GeneralSans-Variable.woff") format("woff"),
+    url("/fonts/GeneralSans-Variable.ttf") format("truetype");
+  font-weight: 200 700;
+  font-display: swap;
+  font-style: normal;
+}
+
+:root {
+  color-scheme: light;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+
+  --font-cd: "ClashDisplay-Variable", sans-serif;
+  --font-sans: "GeneralSans-Variable", sans-serif;
+  --black: #222222;
+  --off-black: #878787;
+  --white: #ffffff;
+  --off-white: #fcfcfc;
+  --gray: #404040;
+  --primary: #f87631;
+  --primary-light: #f7af89;
+}
+
+* {
+  -webkit-box-sizing: border-box;
+  -moz-box-sizing: border-box;
+  box-sizing: border-box;
+  scroll-behavior: smooth;
+}
+
+html {
+  -ms-text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+
+body,
+html {
+  height: 100%;
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-optical-sizing: auto;
+  font-size: 16px;
+  font-weight: 400;
+  font-style: normal;
+  font-variation-settings: "slnt" 0;
+  color: var(--black);
+  margin: 0;
+  overflow-x: hidden;
+  @apply bg-white;
+}
+
+a {
+  color: var(--black);
+}
+
+a:hover {
+  color: var(--primary);
+}
+
+.btn-primary {
+  border-radius: 47px;
+  background: var(--white);
+  border: 1px solid var(--primary);
+  @apply text-sm md:text-base font-medium py-2 md:py-3 px-5 md:px-8 text-black;
+
+  &:hover {
+    background: var(--primary-light);
+    color: var(--black);
+  }
+}
+
+.btn-secondary {
+  border-radius: 30px;
+  border: 1px solid var(--primary);
+  @apply text-sm md:text-xl font-medium py-2 md:py-3 px-5 md:px-8 text-primary hover:bg-primary hover:text-white;
+}
+
+header {
+  background: var(--primary);
+  border-radius: 0 0 30px 30px;
+}
+
+.hero {
+  @apply py-16 md:py-32;
+
+  @screen lg {
+    background-image: url("/images/hero-bg.webp");
+    background-size: cover;
+    background-repeat: no-repeat;
+  }
+}
+
+.u-wrapper {
+  max-width: 1440px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-around;
+  width: 100%;
+}
+
+.c-carousel {
+  overflow-x: hidden;
+  position: relative;
+  width: 100%;
+}
+
+.swiper {
+  margin: 0 48px;
+  position: static;
+}
+
+.swiper-wrapper {
+  display: flex;
+  align-items: center;
+}
+
+.c-carousel img {
+  object-fit: contain;
+  margin: 0 auto;
+}
+
+.swiper-slide {
+  display: flex !important;
+  flex-direction: row;
+  gap: 24px;
+  width: auto;
+  flex-shrink: 0;
+  border: 1.77px solid #eaeaea80;
+  background: var(--off-white);
+  border-radius: 12px;
+  padding: 15px;
+  width: 350px;
+  max-width: 350px;
+}
+
+.prompt-card {
+  background: #fef3ed;
+  border: 2.1px solid var(--primary);
+
+  @screen sm {
+    max-width: 32.5%;
+  }
+
+  @screen 2xl {
+    min-width: auto;
+    max-width: 423px;
+  }
+
+  img {
+    object-fit: contain;
+  }
+}
+
+.explore-ai {
+  background: var(--primary);
+  background-image: url("/images/explore-bg.png");
+  background-repeat: no-repeat;
+  background-position: right top;
+  background-repeat: no-repeat;
+}
