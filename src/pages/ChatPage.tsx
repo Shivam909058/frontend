@@ -1259,17 +1259,40 @@ const ChatPage = () => {
 
       try {
         const getUserName = async () => {
-          const { data: userData, error: userError } = await supabase
-            .from("users")
-            .select("username")
-            .eq("id", userId)
-            .single();
+          try {
+            // Use the enhanced Supabase client
+            const { data: userData, error: userError } = await supabase
+              .from("users")
+              .select("username, name")  // Include name as well
+              .eq("id", userId)
+              .headers({
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'apikey': supabase.supabaseKey,
+                'Prefer': 'return=representation'
+              })
+              .single();
 
-          if (userError || !userData) {
-            throw new Error("Could not fetch user data");
+            if (userError) {
+              console.error("User data fetch error:", userError);
+              throw new Error("Could not fetch user data");
+            }
+
+            if (!userData || !userData.username) {
+              // If username is not available, generate one based on name or use a fallback
+              let fallbackUsername = "user";
+              if (userData && userData.name) {
+                fallbackUsername = userData.name.toLowerCase().replace(/\s+/g, "-");
+              }
+              return fallbackUsername;
+            }
+
+            return userData.username;
+          } catch (error) {
+            console.error("Error in getUserName:", error);
+            // Return a fallback username to avoid breaking the app
+            return `user-${Date.now()}`;
           }
-
-          return userData.username;
         };
 
         const username = await getUserName();
@@ -2109,7 +2132,7 @@ console.log("userDetails id", userDetails?.id)
 
               <div className="hidden lg:block">
                 <ChatHistoryDrawer
-                  userId={userDetails?.id || ""}
+                  userId={userId || ""} // Use userId from parsedToken instead of userDetails?.id
                   onSelectSession={handleSelectSession}
                   isOpen={true}
                   onClose={() => setShowDrawer(false)}
@@ -2117,7 +2140,7 @@ console.log("userDetails id", userDetails?.id)
                   onBucketSelect={handleBucketSelectFromHistory}
                   selectedNewChat={selectedNewChat}
                   currentSessionId={currentSessionId}
-                  isHistoryPage={false} // Add this prop
+                  isHistoryPage={false}
                 />
               </div>
             </div>
@@ -2722,7 +2745,7 @@ console.log("userDetails id", userDetails?.id)
             </div>
             <div className="flex-1 overflow-y-auto">
               <ChatHistoryDrawer
-                userId={userDetails?.id || ""}
+                userId={userId || ""} // Use userId from parsedToken instead of userDetails?.id
                 onSelectSession={handleSelectSession}
                 isOpen={true}
                 onClose={() => setShowDrawer(false)}
@@ -2730,7 +2753,7 @@ console.log("userDetails id", userDetails?.id)
                 onBucketSelect={handleBucketSelectFromHistory}
                 selectedNewChat={selectedNewChat}
                 currentSessionId={currentSessionId}
-                isHistoryPage={false} // Add this prop
+                isHistoryPage={false}
               />
             </div>
           </div>

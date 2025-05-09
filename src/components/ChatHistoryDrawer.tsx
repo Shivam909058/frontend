@@ -47,43 +47,53 @@ const ChatHistoryDrawer: React.FC<ChatHistoryDrawerProps> = ({
 
   useEffect(() => {
     const fetchChatSessions = async () => {
-      const { data, error } = await supabase
-        .from("chat_sessions")
-        .select(
-          `
-          id,
-          topic,
-          bucket_id,
-          buckets (name),
-          chat_messages (
-            created_at
-          )
-        `
-        )
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false });
+      // Don't try to fetch if userId is empty
+      if (!userId) {
+        console.log("No user ID available, skipping chat session fetch");
+        return;
+      }
 
-      if (error) {
-        console.error("Error fetching chat sessions:", error);
-      } else {
-        const sessionsWithLastMessageDate = data.map((session: any) => ({
-          id: session.id,
-          topic: session.topic,
-          bucket_id: session.bucket_id,
-          bucket_name: session.buckets?.name,
-          last_message_at:
-            session.chat_messages.length > 0
-              ? session.chat_messages[session.chat_messages.length - 1]
-                  .created_at
-              : session.created_at,
-        }));
-        // Sort the sessions by last_message_at in descending order
-        sessionsWithLastMessageDate.sort(
-          (a, b) =>
-            new Date(b.last_message_at).getTime() -
-            new Date(a.last_message_at).getTime()
-        );
-        setChatSessions(sessionsWithLastMessageDate);
+      try {
+        const { data, error } = await supabase
+          .from("chat_sessions")
+          .select(
+            `
+            id,
+            topic,
+            bucket_id,
+            buckets (name),
+            chat_messages (
+              created_at
+            )
+          `
+          )
+          .eq("user_id", userId)
+          .order("created_at", { ascending: false });
+
+        if (error) {
+          console.error("Error fetching chat sessions:", error);
+        } else {
+          const sessionsWithLastMessageDate = data.map((session: any) => ({
+            id: session.id,
+            topic: session.topic,
+            bucket_id: session.bucket_id,
+            bucket_name: session.buckets?.name,
+            last_message_at:
+              session.chat_messages.length > 0
+                ? session.chat_messages[session.chat_messages.length - 1]
+                    .created_at
+                : session.created_at,
+          }));
+          // Sort the sessions by last_message_at in descending order
+          sessionsWithLastMessageDate.sort(
+            (a, b) =>
+              new Date(b.last_message_at).getTime() -
+              new Date(a.last_message_at).getTime()
+          );
+          setChatSessions(sessionsWithLastMessageDate);
+        }
+      } catch (error) {
+        console.error("Error in fetchChatSessions:", error);
       }
     };
 
@@ -133,9 +143,9 @@ const ChatHistoryDrawer: React.FC<ChatHistoryDrawerProps> = ({
 
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
-      channel.unsubscribe();
+      supabase.removeChannel(channel);
     };
-  }, [userId, showDropdown, showRenameModal]);
+  }, [userId]);
 
   const updateChatSessionOrder = async (sessionId: string) => {
     const updatedSessions = chatSessions.slice();
