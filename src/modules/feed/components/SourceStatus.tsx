@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { checkSourceStatus } from '../../../services/api';
 
 const SourceStatus = ({ bucketId }: { bucketId: string }) => {
@@ -23,7 +23,7 @@ const SourceStatus = ({ bucketId }: { bucketId: string }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [pollCount, setPollCount] = useState(0);
-  const [intervalId, setIntervalId] = useState<ReturnType<typeof setInterval> | undefined>();
+  const intervalIdRef = useRef<ReturnType<typeof setInterval>>();
   
   useEffect(() => {
     let mounted = true;
@@ -49,7 +49,9 @@ const SourceStatus = ({ bucketId }: { bucketId: string }) => {
           
           // If all sources are processed or we've polled too many times, stop
           if (allProcessed || pollCount > 30) {
-            clearInterval(intervalId);
+            if (intervalIdRef.current) {
+              clearInterval(intervalIdRef.current);
+            }
           }
         }
       } catch (error) {
@@ -68,12 +70,12 @@ const SourceStatus = ({ bucketId }: { bucketId: string }) => {
     fetchStatus();
     
     // Poll every 4 seconds
-    intervalId = setInterval(fetchStatus, 4000);
+    intervalIdRef.current = setInterval(fetchStatus, 4000);
     
     return () => {
       mounted = false;
-      if (intervalId) {
-        clearInterval(intervalId);
+      if (intervalIdRef.current) {
+        clearInterval(intervalIdRef.current);
       }
     };
   }, [bucketId, pollCount]);
@@ -187,7 +189,7 @@ const SourceStatus = ({ bucketId }: { bucketId: string }) => {
                   </li>
                 ))}
                 {(status?.sources?.success?.length ?? 0) > 3 && (
-                  <li className="text-gray-500">...and {status.sources.success.length - 3} more</li>
+                  <li className="text-gray-500">...and {status.sources?.success?.length ?? 0 - 3} more</li>
                 )}
               </ul>
             </div>
