@@ -1271,33 +1271,69 @@ const ChatPage = () => {
           throw new Error("User information not found. Please login again.");
         }
         
-        // First, check if the user record exists in the users table
-        const { data: existingUser, error: userCheckError } = await supabase
+        // First, check if a user with this email already exists
+        const { data: userByEmail, error: emailError } = await supabase
           .from("users")
           .select("id")
-          .eq("id", userAuthId)  // Check by auth ID
+          .eq("email", userEmail)
           .single();
         
-        // If user doesn't exist, create the user record
-        if (userCheckError || !existingUser) {
-          console.log("Creating user record in the database...");
-          
-          // Generate a username from email
-          const defaultUsername = userEmail.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '-');
-          
-          // Insert the user record with the same ID as the auth user
-          const { error: createUserError } = await supabase // Removed unused variable declaration
+        let userId = userAuthId;
+        
+        // If we found a user with this email, use their ID
+        if (userByEmail) {
+          console.log("Found existing user with email:", userEmail);
+          userId = userByEmail.id;
+        } else {
+          // If no user with this email exists, try to find by ID
+          const { data: userById, error: idError } = await supabase
             .from("users")
-            .insert({
-              id: userAuthId,  // Use the auth user ID
-              email: userEmail,
-              name: defaultUsername,  // Use a default name
-              username: defaultUsername,
-            });
+            .select("id")
+            .eq("id", userAuthId)
+            .single();
           
-          if (createUserError) {
-            console.error("Error creating user:", createUserError);
-            throw new Error("Failed to create user profile. Please visit your profile page to complete setup.");
+          if (idError || !userById) {
+            console.log("Creating new user record...");
+            
+            try {
+              // Generate a username from email
+              const defaultUsername = userEmail.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '-');
+              
+              // Insert new user
+              const { error: createError } = await supabase
+                .from("users")
+                .insert({
+                  id: userAuthId,
+                  email: userEmail,
+                  name: defaultUsername,
+                  username: defaultUsername,
+                });
+              
+              if (createError) {
+                if (createError.code === '23505') {
+                  // If we get a duplicate key error, try to find the user again
+                  console.log("User already exists, trying to fetch ID...");
+                  const { data: existingUser } = await supabase
+                    .from("users")
+                    .select("id")
+                    .eq("email", userEmail)
+                    .single();
+                  
+                  if (existingUser) {
+                    userId = existingUser.id;
+                  } else {
+                    throw new Error("Could not find or create user account");
+                  }
+                } else {
+                  throw createError;
+                }
+              }
+            } catch (createUserError) {
+              console.error("Error in user creation:", createUserError);
+              // Continue with bucket creation anyway, using auth ID
+            }
+          } else {
+            userId = userById.id;
           }
         }
         
@@ -1307,17 +1343,19 @@ const ChatPage = () => {
         const urlFriendlyShaktyName = name.toLowerCase().replace(/\s+/g, "-");
         const share_id = `${urlFriendlyUsername}/${urlFriendlyShaktyName}`;
 
-        // Now create the bucket with the auth user ID
+        console.log("Creating bucket with user ID:", userId);
+        
+        // Now create the bucket with the user ID
         const { data, error } = await supabase
           .from("buckets")
           .insert({
             name: name,
             bio: tagline,
             character_name: characterName,
-            prompt: instructions || "", // Provide default empty string to satisfy NOT NULL constraint
+            prompt: instructions || "", 
             isPublic: isPublic,
             shakty_dp: uploadedImageUrl,
-            created_by: userAuthId,  // Use the auth user ID
+            created_by: userId,
             share_id: share_id,
             is_verified: isPublic ? false : true,
           })
