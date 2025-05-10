@@ -1286,16 +1286,14 @@ const ChatPage = () => {
           const defaultUsername = userEmail.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '-');
           
           // Insert the user record with the same ID as the auth user
-          const { data: newUser, error: createUserError } = await supabase
+          const { error: createUserError } = await supabase // Removed unused variable declaration
             .from("users")
             .insert({
               id: userAuthId,  // Use the auth user ID
               email: userEmail,
               name: defaultUsername,  // Use a default name
               username: defaultUsername,
-            })
-            .select()
-            .single();
+            });
           
           if (createUserError) {
             console.error("Error creating user:", createUserError);
@@ -1316,7 +1314,7 @@ const ChatPage = () => {
             name: name,
             bio: tagline,
             character_name: characterName,
-            prompt: instructions,
+            prompt: instructions || "", // Provide default empty string to satisfy NOT NULL constraint
             isPublic: isPublic,
             shakty_dp: uploadedImageUrl,
             created_by: userAuthId,  // Use the auth user ID
