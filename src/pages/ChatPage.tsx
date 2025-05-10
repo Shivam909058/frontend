@@ -2019,51 +2019,51 @@ console.log("userDetails id", userDetails?.id)
   }, [buckets]);
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const getUsernameFromPath = () => {
-    const pathSegments = window.location.pathname.split('/');
+  //const getUsernameFromPath = () => {
+  //  const pathSegments = window.location.pathname.split('/');
     // The URL format is /shakty/:username/:shaktyName
-    if (pathSegments.length >= 3 && pathSegments[1] === 'shakty') {
-      return pathSegments[2];
-    }
-    return null;
-  };
+   // if (pathSegments.length >= 3 && pathSegments[1] === 'shakty') {
+   //   return pathSegments[2];
+  //  }
+  //  return null;
+  //};
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const getUserImageSrc = (profilePictureUrl: string | null, username: string | null) => {
-    if (profilePictureUrl) {
-      // If profile picture exists, use it
-      return `${import.meta.env.VITE_SUPABASE_URL || "https://mhhmucxengkrgkwpecee.supabase.co"}/storage/v1/object/public/img/${profilePictureUrl}`;
-    }
-    
-    // Otherwise use default avatar
-    return "/assets/default-avatar.png"; // Replace with your default avatar path
-  };
+  //const getUserImageSrc = (profilePictureUrl: string | null, username: string | null) => {
+  //  if (profilePictureUrl) {
+  //    // If profile picture exists, use it
+   //   return `${import.meta.env.VITE_SUPABASE_URL || "https://mhhmucxengkrgkwpecee.supabase.co"}/storage/v1/object/public/img/${profilePictureUrl}`;
+  //  }
+   // 
+   // // Otherwise use default avatar
+   // return "/assets/default-avatar.png"; // Replace with your default avatar path
+ // };
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const fetchCreatorProfile = async (username: string | null) => {
-    if (!username) {
-      console.log("No username provided, skipping profile fetch");
-      return null;
-    }
-    
-    try {
-      const { data, error } = await supabase
-        .from("users")
-        .select("profile_picture_url, name")
-        .eq("username", username)
-        .single();
+  //const fetchCreatorProfile = async (username: string | null) => {
+  //  if (!username) {
+  //    console.log("No username provided, skipping profile fetch");
+  //    return null;
+   // }
+  //  
+   // try {
+   //   const { data, error } = await supabase
+   //     .from("users")
+    //    .select("profile_picture_url, name")
+     //   .eq("username", username)
+     //   .single();
+     // 
+      //if (error) {
+      //  console.error("Error fetching user profile:", error);
+      //  return null;
+     // }
       
-      if (error) {
-        console.error("Error fetching user profile:", error);
-        return null;
-      }
-      
-      return data;
-    } catch (error) {
-      console.error("Exception fetching user profile:", error);
-      return null;
-    }
-  };
+    // / return data;
+    //} catch (error) {
+     // console.error("Exception fetching user profile:", error);
+     // return null;
+   // }
+  //};
 
   return (
     <main className="chat-page h-screen w-screen mx-auto flex flex-col text-ui-90 relative">
