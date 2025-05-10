@@ -110,7 +110,7 @@ const ChatPage = () => {
 
 
   // Add fetch function for bucket data
-  const fetchBucketData = async (bucketId: string) => {
+  const fetchBucketData = async (bucketId: string): Promise<any> => {
     try {
       // Fetch bucket prompt
       const { data: promptData, error: promptError } = await supabase
@@ -150,7 +150,7 @@ const ChatPage = () => {
     }
   };
 
-  const handleBucketSelect = async (bucket: any) => {
+  const handleBucketSelect = async (bucket: any): Promise<void> => {
     // Navigate to the share URL if the bucket has a share_id
     if (bucket.share_id) {
       navigate(`/${bucket.share_id}`);
@@ -234,7 +234,7 @@ const ChatPage = () => {
 
 
 
-  const fetchUserDetails = async (email: string) => {
+  const fetchUserDetails = async (email: string): Promise<any> => {
     const { data, error } = await supabase
       .from("users")
       .select("id, name,location, profile_picture_url")
@@ -583,7 +583,7 @@ const ChatPage = () => {
   // };
 
   // Move this function up before fetchAndProcessAIResponse
-  const createChatSession = async (bucketId: string | null | undefined, topic: string) => {
+  const createChatSession = async (bucketId: string | null | undefined, topic: string): Promise<any> => {
     try {
       console.log(`Creating new chat session for bucket: ${bucketId}, topic: ${topic}`);
       
@@ -616,7 +616,7 @@ const ChatPage = () => {
   const fetchAndProcessAIResponse = useCallback(async (
     question: string, 
     sessionId: string | null = null
-  ) => {
+  ): Promise<any> => {
     setIsLoading(true);
     
     try {
@@ -768,44 +768,41 @@ const ChatPage = () => {
   }, [currentBucket, messages, checkSourceStatus, saveChatMessage, createChatSession, chatWithShakty]);
 
   // Update the handleSubmit function
-  const handleSubmit = useCallback(
-    async (e: React.FormEvent) => {
-      e.preventDefault();
-      
-      if (!input.trim() || isLoading) return;
+  const handleSubmit = useCallback(async (e: React.FormEvent): Promise<void> => {
+    e.preventDefault();
+    
+    if (!input.trim() || isLoading) return;
 
-      const userMessage = input.trim();
-      setInput('');
-      
-      // Add user message to the UI
-      setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
-      
-      // Make sure we have a session ID as a string
-      let sessionIdToUse = currentSessionId;
-      if (typeof sessionIdToUse !== 'string' && sessionIdToUse) {
-        // Use safer type guard and assertion
-        if (typeof sessionIdToUse === 'object' && sessionIdToUse !== null && 'id' in sessionIdToUse) {
-          sessionIdToUse = (sessionIdToUse as {id: string}).id;
-        } else {
-          sessionIdToUse = String(sessionIdToUse);
-        }
+    const userMessage = input.trim();
+    setInput('');
+    
+    // Add user message to the UI
+    setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
+    
+    // Make sure we have a session ID as a string
+    let sessionIdToUse = currentSessionId;
+    if (typeof sessionIdToUse !== 'string' && sessionIdToUse) {
+      // Use safer type guard and assertion
+      if (typeof sessionIdToUse === 'object' && sessionIdToUse !== null && 'id' in sessionIdToUse) {
+        sessionIdToUse = (sessionIdToUse as {id: string}).id;
+      } else {
+        sessionIdToUse = String(sessionIdToUse);
+      }
+    }
+    
+    try {
+      // Save user message
+      if (sessionIdToUse) {
+        await saveChatMessage(sessionIdToUse, userMessage, 'user');
       }
       
-      try {
-        // Save user message
-        if (sessionIdToUse) {
-          await saveChatMessage(sessionIdToUse, userMessage, 'user');
-        }
-        
-        // Process the message and get AI response
-        await fetchAndProcessAIResponse(userMessage, sessionIdToUse);
-      } catch (error) {
-        console.error("Error in chat submission:", error);
-        setMessages(prev => [...prev, { role: 'llm', content: "Sorry, I encountered an error. Please try again." }]);
-      }
-    },
-    [input, isLoading, currentSessionId, fetchAndProcessAIResponse]
-  );
+      // Process the message and get AI response
+      await fetchAndProcessAIResponse(userMessage, sessionIdToUse);
+    } catch (error) {
+      console.error("Error in chat submission:", error);
+      setMessages(prev => [...prev, { role: 'llm', content: "Sorry, I encountered an error. Please try again." }]);
+    }
+  }, [input, isLoading, currentSessionId, fetchAndProcessAIResponse]);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -831,7 +828,7 @@ const ChatPage = () => {
     setShowDropdown(!showDropdown);
   };
 
-  const handleSelectSession = async (sessionId: string) => {
+  const handleSelectSession = async (sessionId: string): Promise<void> => {
     try {
       const { data: sessionData, error: sessionError } = await supabase
         .from("chat_sessions")
@@ -2021,7 +2018,7 @@ console.log("userDetails id", userDetails?.id)
     console.log("User's buckets:", buckets.filter(b => b.isOwned).length);
   }, [buckets]);
 
-  // Add this helper function to ChatPage component
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const getUsernameFromPath = () => {
     const pathSegments = window.location.pathname.split('/');
     // The URL format is /shakty/:username/:shaktyName
@@ -2031,7 +2028,7 @@ console.log("userDetails id", userDetails?.id)
     return null;
   };
 
-  // Update getUserImageSrc function (if it exists) or add it
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const getUserImageSrc = (profilePictureUrl: string | null, username: string | null) => {
     if (profilePictureUrl) {
       // If profile picture exists, use it
@@ -2042,8 +2039,7 @@ console.log("userDetails id", userDetails?.id)
     return "/assets/default-avatar.png"; // Replace with your default avatar path
   };
 
-  // Find where you're fetching user profiles and update the logic
-  // Example (adjust according to your actual implementation):
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const fetchCreatorProfile = async (username: string | null) => {
     if (!username) {
       console.log("No username provided, skipping profile fetch");
