@@ -103,6 +103,7 @@ const ChatPage = () => {
     creator_name?: string;
     share_id?: string;
     is_verified: boolean;
+    isOwned?: boolean; // Add this property
   }
 
   // Update the state definition
