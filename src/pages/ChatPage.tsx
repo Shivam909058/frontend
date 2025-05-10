@@ -1272,7 +1272,7 @@ const ChatPage = () => {
         }
         
         // First, check if a user with this email already exists
-        const { data: userByEmail, error: emailError } = await supabase
+        const { data: userByEmail } = await supabase
           .from("users")
           .select("id")
           .eq("email", userEmail)
