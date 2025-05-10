@@ -165,33 +165,71 @@ const ChatPage = () => {
 
   useEffect(() => {
     const fetchBuckets = async () => {
-      // Update your bucket fetching query to include creator name and filter for verified buckets
-      const { data: bucketsData, error: bucketsError } = await supabase
-        .from("buckets")
-        .select(`
-          *,
-          users:created_by (
-            name
-          )
-        `)
-        .eq('is_verified', true); // Only fetch verified buckets
-
-      if (bucketsError) {
-        console.error("Error fetching buckets:", bucketsError);
+      console.log("Fetching buckets for user:", userId);
+      
+      if (!userId) {
+        console.log("No user ID available, skipping bucket fetch");
         return;
       }
 
-      // Transform the data to include creator_name
-      const transformedBuckets = bucketsData?.map((bucket) => ({
-        ...bucket,
-        creator_name: bucket.users?.name,
-      }));
+      try {
+        // Fetch all buckets created by the current user
+        const { data: userBuckets, error: userBucketsError } = await supabase
+          .from("buckets")
+          .select(`
+            *,
+            users:created_by (
+              name
+            )
+          `)
+          .eq('created_by', userId);
+          
+        if (userBucketsError) {
+          console.error("Error fetching user's buckets:", userBucketsError);
+          return;
+        }
+        
+        console.log("User buckets fetched:", userBuckets?.length || 0);
 
-      setBuckets(transformedBuckets || []);
+        // Fetch public/verified buckets
+        const { data: publicBuckets, error: publicBucketsError } = await supabase
+          .from("buckets")
+          .select(`
+            *,
+            users:created_by (
+              name
+            )
+          `)
+          .eq('is_verified', true)
+          .neq('created_by', userId); // Don't duplicate user's own buckets
+          
+        if (publicBucketsError) {
+          console.error("Error fetching public buckets:", publicBucketsError);
+        }
+        
+        // Combine and transform the data
+        const allBuckets = [
+          ...(userBuckets || []).map(bucket => ({
+            ...bucket,
+            creator_name: bucket.users?.name || "You",
+            isOwned: true // Mark as owned by the current user
+          })),
+          ...(publicBuckets || []).map(bucket => ({
+            ...bucket,
+            creator_name: bucket.users?.name || "Unknown",
+            isOwned: false
+          }))
+        ];
+        
+        console.log("All buckets combined:", allBuckets.length);
+        setBuckets(allBuckets);
+      } catch (error) {
+        console.error("Error in fetchBuckets:", error);
+      }
     };
 
     fetchBuckets();
-  }, []);
+  }, [userId]);
 
 
 
@@ -1148,7 +1186,10 @@ const ChatPage = () => {
   
 
   // Add this component inside ChatPage but before the return statement
-  const CreateShaktyModal = ({ onClose }: { onClose: () => void }) => {
+  const CreateShaktyModal = ({ onClose, onBucketCreated }: { 
+    onClose: () => void;
+    onBucketCreated?: () => void;
+  }) => {
     const [name, setName] = useState("");
     const [tagline, setTagline] = useState("");
     const [characterName, setCharacterName] = useState("");
@@ -1370,6 +1411,10 @@ const ChatPage = () => {
           setShareUrl(url);
           setIsSuccess(true);
         } else {
+          // Call the callback to refresh buckets
+          if (onBucketCreated) {
+            onBucketCreated();
+          }
           onClose();
         }
       } catch (error) {
@@ -1866,6 +1911,70 @@ console.log("userDetails id", userDetails?.id)
       console.log(`Current bucket ID: ${currentBucket.id}`);
     }
   }, [currentBucket]);
+
+  // Add this function to ChatPage component
+  const refreshBuckets = async () => {
+    console.log("Refreshing buckets after creation");
+    
+    try {
+      // Fetch all buckets created by the current user
+      const { data: userBuckets, error: userBucketsError } = await supabase
+        .from("buckets")
+        .select(`
+          *,
+          users:created_by (
+            name
+          )
+        `)
+        .eq('created_by', userId);
+        
+      if (userBucketsError) {
+        console.error("Error fetching user's buckets:", userBucketsError);
+        return;
+      }
+      
+      // Fetch public/verified buckets
+      const { data: publicBuckets, error: publicBucketsError } = await supabase
+        .from("buckets")
+        .select(`
+          *,
+          users:created_by (
+            name
+          )
+        `)
+        .eq('is_verified', true)
+        .neq('created_by', userId); // Don't duplicate user's own buckets
+        
+      if (publicBucketsError) {
+        console.error("Error fetching public buckets:", publicBucketsError);
+      }
+      
+      // Combine and transform the data
+      const allBuckets = [
+        ...(userBuckets || []).map(bucket => ({
+          ...bucket,
+          creator_name: bucket.users?.name || "You",
+          isOwned: true // Mark as owned by the current user
+        })),
+        ...(publicBuckets || []).map(bucket => ({
+          ...bucket,
+          creator_name: bucket.users?.name || "Unknown",
+          isOwned: false
+        }))
+      ];
+      
+      console.log("Buckets refreshed:", allBuckets.length);
+      setBuckets(allBuckets);
+    } catch (error) {
+      console.error("Error refreshing buckets:", error);
+    }
+  };
+
+  // Add this useEffect to log buckets whenever they change
+  useEffect(() => {
+    console.log("Buckets state updated:", buckets.length);
+    console.log("User's buckets:", buckets.filter(b => b.isOwned).length);
+  }, [buckets]);
 
   return (
     <main className="chat-page h-screen w-screen mx-auto flex flex-col text-ui-90 relative">
@@ -2875,7 +2984,10 @@ console.log("userDetails id", userDetails?.id)
         </div>
       )}
       {showCreateShaktyModal && (
-        <CreateShaktyModal onClose={() => setShowCreateShaktyModal(false)} />
+        <CreateShaktyModal 
+          onClose={() => setShowCreateShaktyModal(false)} 
+          onBucketCreated={refreshBuckets}
+        />
       )}
     </main>
   );
