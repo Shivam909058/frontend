@@ -98,7 +98,13 @@ export const refreshAuthToken = async (): Promise<string | null> => {
     console.error('Error refreshing token:', error);
     
     // Handle authentication errors
-    if (error.message && (error.message.includes('401') || error.message.includes('auth'))) {
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'response' in error &&
+      (error as any).response &&
+      (error as any).response.status === 401
+    ) {
       console.log("Authentication error during token refresh, redirecting to login");
       localStorage.removeItem(`${import.meta.env.VITE_TOKEN_ID}`);
       window.location.href = '/login';
@@ -135,7 +141,7 @@ apiClient.interceptors.response.use(
     const originalRequest = error.config;
     
     // If error is 401 and we haven't retried yet
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (error instanceof Error && error.message === 'Request failed with status code 401' && !originalRequest._retry) {
       originalRequest._retry = true;
       
       try {
@@ -273,7 +279,13 @@ export async function processInstagram(url: string, bucketId: string) {
     console.error("Error processing Instagram URL:", error);
     
     // Handle token expiration
-    if (axios.isAxiosError(error) && error.response?.status === 401) {
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'response' in error &&
+      (error as any).response &&
+      (error as any).response.status === 401
+    ) {
       console.log("Token expired, attempting to refresh...");
       
       // Try to refresh the token
@@ -415,7 +427,7 @@ export const enhanceInstagramRetrieval = async (bucketId: string, question: stri
       console.log(`Found ${instagramSources.length} Instagram sources that should be included in retrieval`);
       
       // Log the sources for debugging
-      instagramSources.forEach((source, index) => {
+      instagramSources.forEach((source: any, index: number) => {
         console.log(`Instagram source ${index + 1}:`, {
           id: source.id,
           url: source.source_url,
@@ -535,7 +547,7 @@ export const checkSourceStatus = async (bucketId: string) => {
     console.error("Error checking source status:", error);
     return {
       success: false,
-      error: error.message,
+      error: error instanceof Error ? error.message : String(error),
       total_sources: 0,
       status_summary: { success: 0, processing: 0, pending: 0, failed: 0 },
       isFullyProcessed: false,
@@ -630,9 +642,14 @@ export const saveChatMessage = async (sessionId: string | object, message: strin
     }
     
     // Make sure sessionId is a string
-    let sessionIdString = typeof sessionId === 'string' 
-      ? sessionId 
-      : sessionId?.id || JSON.stringify(sessionId);
+    let sessionIdString: string;
+    if (typeof sessionId === 'string') {
+      sessionIdString = sessionId;
+    } else if (sessionId && typeof sessionId === 'object' && 'id' in sessionId) {
+      sessionIdString = (sessionId as { id: string }).id;
+    } else {
+      sessionIdString = JSON.stringify(sessionId);
+    }
     
     // Check and refresh token if needed
     const isTokenValid = await checkAndRefreshToken();
@@ -662,7 +679,13 @@ export const saveChatMessage = async (sessionId: string | object, message: strin
     console.error('Error saving message:', error);
     
     // Check if this is an authentication error
-    if (error.response && error.response.status === 401) {
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'response' in error &&
+      (error as any).response &&
+      (error as any).response.status === 401
+    ) {
       // Redirect to login page
       window.location.href = '/login';
     }
@@ -771,7 +794,7 @@ export const chatWithShakty = async (
     const data = await response.json();
     return data;
   } catch (error) {
-    if (error.name === 'AbortError') {
+    if (error instanceof Error && error.name === 'AbortError') {
       return {
         answer: "I'm sorry, the request took too long to process. Please try asking a simpler question or try again later when all your sources have finished processing.",
         sources: []
@@ -780,7 +803,7 @@ export const chatWithShakty = async (
     
     console.error("Error in chat with Shakty:", error);
     return {
-      answer: `I encountered an error while trying to answer: ${error.message}. Please try again or add more sources if you're asking about content I don't have yet.`,
+      answer: `I encountered an error while trying to answer: ${error instanceof Error ? error.message : String(error)}. Please try again or add more sources if you're asking about content I don't have yet.`,
       sources: []
     };
   }
@@ -894,11 +917,11 @@ export const addSource = async (url: string, bucketId: string) => {
   } catch (error) {
     console.error("Error adding source:", error);
     
-    if (error.response) {
-      console.error("API error response:", error.response.data);
+    if (typeof error === 'object' && error !== null && 'response' in error) {
+      console.error("API error response:", (error as any).response.data);
     }
     
-    return { success: false, message: error.message || "An error occurred" };
+    return { success: false, message: error instanceof Error ? error.message : String(error) || "An error occurred" };
   }
 };
 

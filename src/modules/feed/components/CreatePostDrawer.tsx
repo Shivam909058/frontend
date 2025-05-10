@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  processUrl as processUrlApi, 
+import {
   processYouTube, 
   processInstagram, 
   processText,
@@ -83,7 +82,7 @@ const styles = {
     borderRadius: '4px',
     fontSize: '1rem',
     minHeight: '150px',
-    resize: 'vertical',
+    resize: 'vertical' as const,
     marginBottom: '8px',
   },
   info: {
@@ -139,8 +138,6 @@ interface CreatePostDrawerProps {
   onSourceAdded?: () => void;
 }
 
-
-
 const CreatePostDrawer: React.FC<CreatePostDrawerProps> = ({ bucketId, onClose, onSourceAdded }) => {
   const [url, setUrl] = useState<string>('');
   const [text, setText] = useState<string>('');
@@ -150,9 +147,6 @@ const CreatePostDrawer: React.FC<CreatePostDrawerProps> = ({ bucketId, onClose, 
   const [error, setError] = useState<string>('');
   const [success, setSuccess] = useState<string>('');
   const [processingStatus, setProcessingStatus] = useState<any>(null);
-  const [setProcessingMessage] = useState("");
-  const [ setComponentBucketId] = useState<string | null>(null);
-  const [setActiveBucketId] = useState('');
   
   // Move useParams to the top level of the component
   const params = useParams();
@@ -167,18 +161,12 @@ const CreatePostDrawer: React.FC<CreatePostDrawerProps> = ({ bucketId, onClose, 
     
     // Set the active bucket ID from URL or stored value
     const idToUse = urlBucketId || storedBucketId || bucketId;
-    setActiveBucketId(idToUse);
     
     console.log("Setting active bucket ID:", idToUse);
     
     // Get bucket ID from props or localStorage (avoid using same name as props)
     const currentBucketId = bucketId || localStorage.getItem('currentBucketId');
     console.log("Bucket ID:", currentBucketId);
-    
-    // Store in state for later use
-    if (currentBucketId) {
-      setComponentBucketId(currentBucketId);
-    }
     
     const token = localStorage.getItem(import.meta.env.VITE_TOKEN_ID);
     console.log("Token exists:", !!token);
@@ -317,19 +305,9 @@ const CreatePostDrawer: React.FC<CreatePostDrawerProps> = ({ bucketId, onClose, 
           setError(typeof errorMessage === 'object' ? JSON.stringify(errorMessage) : errorMessage);
         }
       }
-    } catch (error) {
-      console.error('Error processing source:', error);
-      
-      // Check if this is an authentication error
-      if (error.message?.includes('auth') || error.response?.status === 401 || error.response?.status === 403) {
-        setError('Authentication error. Please log in again.');
-        setTimeout(() => {
-          window.location.href = '/login';
-        }, 2000);
-        return;
-      }
-      
-      setError(error.message || 'An error occurred while processing the source');
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      setError(errMsg || 'An error occurred while processing the source');
     } finally {
       setIsProcessing(false);
     }
@@ -353,7 +331,6 @@ const CreatePostDrawer: React.FC<CreatePostDrawerProps> = ({ bucketId, onClose, 
               updatedStatus.status_summary.pending === 0 && 
               updatedStatus.status_summary.processing === 0) {
             clearInterval(intervalId);
-            setProcessingMessage("All sources have been processed!");
           }
         } catch (error) {
           console.error("Error checking processing status:", error);
@@ -425,7 +402,7 @@ const CreatePostDrawer: React.FC<CreatePostDrawerProps> = ({ bucketId, onClose, 
             className="title-input"
           />
           <textarea
-            style={styles.textarea}
+            style={{ ...styles.textarea, resize: 'vertical' }}
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder="Enter source information... (minimum 50 characters)"

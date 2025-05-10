@@ -13,24 +13,12 @@ import { truncateTopic, adjustTextareaHeight } from "../utils/chatUtils.tsx";
 import { cn } from "@/utils/index.ts";
 import CreatePostDrawer from '../modules/feed/components/CreatePostDrawer';
 import LoginButton from "../components/shakty_homepage_components/LoginButton";
-import axios from "axios";
 // Import the apiClient from our services
 import { apiClient } from '../services/api';
 import { chatWithShakty, saveChatMessage } from '../services/api';
 import { checkSourceStatus } from '../services/api';
 
 // Helper function to get access token from localStorage
-const getAccessToken = () => {
-  const tokenStr = localStorage.getItem(`${import.meta.env.VITE_TOKEN_ID}`);
-  if (!tokenStr) return null;
-  try {
-    const parsed = JSON.parse(tokenStr);
-    return parsed?.access_token;
-  } catch (e) {
-    console.error("Error parsing token:", e);
-    return null;
-  }
-};
 
 const mediaQuery = window.matchMedia("(min-width: 768px)");
 
@@ -71,7 +59,6 @@ const ChatPage = () => {
   const [showCreateShaktyModal, setShowCreateShaktyModal] = useState(false);
   const [showCopied, setShowCopied] = useState(false); // Add this state
   const [creatorName, setCreatorName] = useState<string>("");
-  const [setActiveBucketId] = useState<string | null>(null);
   // console.log(bucketPrompt);
   // console.log(bucketSources);
   const [messages, setMessages] = useState<{ role: string; content: string; isLoading?: boolean }[]>(
@@ -317,152 +304,8 @@ const ChatPage = () => {
 
   // Add this new function near the top of the component
 
-  // Update the processInstagram function to match the API expectations
-  const processInstagram = async (url, bucketId) => {
-    try {
-      console.log("Processing Instagram URL:", url);
-      
-      // Extract Instagram metadata
-      const instagramRegex = /instagram\.com\/(?:p|reel)\/([^/?]+)/;
-      const match = url.match(instagramRegex);
-      const postId = match ? match[1] : null;
-      
-      // Extract username if possible
-      const usernameRegex = /instagram\.com\/([^/]+)\/(?:p|reel)/;
-      const usernameMatch = url.match(usernameRegex);
-      const username = usernameMatch ? usernameMatch[1] : '';
-      
-      const metadata = { username, postId };
-      console.log("Instagram metadata extracted:", metadata);
-      
-      // Store metadata in localStorage for retrieval context
-      localStorage.setItem('has_ai_instagram_content', 'true');
-      localStorage.setItem('ai_instagram_url', url);
-      localStorage.setItem('ai_instagram_postid', postId || '');
-      
-      const token = getAccessToken();
-      if (!token) {
-        throw new Error("Authentication required");
-      }
-
-      // Make the API call - updated to match test script format
-      const response = await axios.post(
-        `${import.meta.env.VITE_SHAKTY_API_URL}/api/sources/instagram`,
-        {
-          urls: [url],  // Put URL in an array
-          bucket_id: bucketId,
-          chunk_size: 1500,
-          chunk_overlap: 300
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          timeout: 300000 // 5 minute timeout for Instagram processing
-        }
-      );
-
-      console.log("Instagram processing response:", response.data);
-      
-      if (response.data.success === false && response.data.source_count === 0) {
-        // If API reports success=false but indicates a specific error we can handle
-        if (response.data.error_code === "RATE_LIMITED") {
-          throw new Error("Instagram processing rate limited. Please try again later.");
-        } else if (response.data.error_code === "PRIVATE_CONTENT") {
-          throw new Error("Cannot access private Instagram content.");
-        } else {
-          throw new Error(response.data.message || "Failed to process Instagram content");
-        }
-      }
-      
-      return response.data;
-    } catch (error) {
-      // Handle 401 error - token expired
-      if (axios.isAxiosError(error) && error.response?.status === 401) {
-        console.log("Authentication token expired, attempting to refresh...");
-        
-        // Use the checkAndRefreshToken function that already exists in this file
-        const tokenRefreshed = await checkAndRefreshToken();
-        
-        if (tokenRefreshed) {
-          console.log("Token refreshed, retrying request...");
-          // Retry the request once with the new token
-          return processInstagram(url, bucketId);
-        } else {
-          console.error("Failed to refresh token");
-          window.location.href = "/login";
-          throw new Error("Session expired. Please log in again.");
-        }
-      }
-      
-      console.error("Instagram processing error:", error);
-      // Store error info in localStorage for debugging
-      localStorage.setItem('instagram_processing_error', error.message || 'Unknown error');
-      throw error;
-    }
-  };
-
   // Define checkAndRefreshToken first
-  const checkAndRefreshToken = async () => {
-    try {
-      console.log("Checking and refreshing token if needed");
-      
-      const token = localStorage.getItem(import.meta.env.VITE_TOKEN_ID);
-      if (!token) {
-        console.log("No token found in localStorage");
-        return false;
-      }
-      
-      // Try to validate the token with Supabase
-      try {
-        const supabase = createClient(
-          import.meta.env.VITE_SUPABASE_URL,
-          import.meta.env.VITE_SUPABASE_ANON_KEY
-        );
-        
-        // First check if the token is still valid
-        const { data: userData, error: userError } = await supabase.auth.getUser(token);
-        
-        if (!userError && userData?.user) {
-          console.log("Token is still valid");
-          return true;
-        }
-        
-        console.log("Token invalid or expired, attempting to refresh");
-        
-        // Try to refresh the session
-        const { data: sessionData, error: sessionError } = await supabase.auth.refreshSession();
-        
-        if (sessionError) {
-          console.error("Error refreshing session:", sessionError);
-          // Clear the invalid token
-          localStorage.removeItem(import.meta.env.VITE_TOKEN_ID);
-          return false;
-        }
-        
-        if (sessionData?.session?.access_token) {
-          // Store the new token
-          localStorage.setItem(
-            import.meta.env.VITE_TOKEN_ID,
-            sessionData.session.access_token
-          );
-          console.log("Token refreshed successfully");
-          return true;
-        } else {
-          console.error("No token in refresh response");
-          return false;
-        }
-      } catch (error) {
-        console.error("Error during token validation/refresh:", error);
-        return false;
-      }
-    } catch (error) {
-      console.error("Error in checkAndRefreshToken:", error);
-      return false;
-    }
-  };
-
+  
   // Then define handleSessionCreation
 
   // Move this function up before fetchAndProcessAIResponse
@@ -493,7 +336,7 @@ const ChatPage = () => {
   };
 
   // Now define fetchAndProcessAIResponse which uses createChatSession
-  const fetchAndProcessAIResponse = useCallback(async (question, sessionId = null) => {
+  const fetchAndProcessAIResponse = useCallback(async (question: string, sessionId: string | null = null) => {
     setIsLoading(true);
     
     try {
@@ -560,9 +403,9 @@ const ChatPage = () => {
       }
       
       // Get chat history (previous messages for context)
-      const chatHistory = messages
+      const chatHistory: [string, string][] = messages
         .filter(msg => msg.role !== "user" || msg.content !== messages[0].content)
-        .map(msg => [msg.role === "user" ? "Human" : "AI", msg.content]);
+        .map(msg => [msg.role === "user" ? "Human" : "AI", msg.content] as [string, string]);
       
       // Send the request to the AI
       const aiResponse = await chatWithShakty(
@@ -597,7 +440,9 @@ const ChatPage = () => {
       if (newSessionId) {
         try {
           // Make sure we're passing a string, not an object
-          const sessionIdToUse = typeof newSessionId === 'string' ? newSessionId : newSessionId.id || String(newSessionId);
+          const sessionIdToUse = typeof newSessionId === 'string'
+            ? newSessionId
+            : (newSessionId && 'id' in newSessionId ? (newSessionId as { id: string }).id : String(newSessionId));
           
           await saveChatMessage(sessionIdToUse, question, 'user');
           await saveChatMessage(sessionIdToUse, responseText, 'llm');
@@ -651,8 +496,10 @@ const ChatPage = () => {
       
       // Make sure we have a session ID as a string
       let sessionIdToUse = currentSessionId;
-      if (typeof sessionIdToUse !== 'string' && sessionIdToUse) {
-        sessionIdToUse = sessionIdToUse.id || String(sessionIdToUse);
+      if (typeof sessionIdToUse === 'object' && sessionIdToUse !== null && 'id' in sessionIdToUse) {
+        sessionIdToUse = (sessionIdToUse as { id: string }).id;
+      } else {
+        sessionIdToUse = String(sessionIdToUse);
       }
       
       try {
@@ -1698,19 +1545,6 @@ const ChatPage = () => {
   
 
   // Then, add this useEffect to keep activeBucketId in sync with currentBucket
-  useEffect(() => {
-    if (currentBucket) {
-      setActiveBucketId(currentBucket.id);
-    }
-  }, [currentBucket]);
-
-  // Set active bucket ID when current bucket changes
-  useEffect(() => {
-    if (currentBucket?.id) {
-      console.log(`Setting active bucket ID to: ${currentBucket.id}`);
-      setActiveBucketId(currentBucket.id);
-    }
-  }, [currentBucket]);
 
   return (
     <main className="chat-page h-screen w-screen mx-auto flex flex-col text-ui-90 relative">
@@ -2669,7 +2503,7 @@ const ChatPage = () => {
       )}
       {showSourceModal && (
         <CreatePostDrawer
-          bucketId={currentBucket?.id}
+          bucketId={currentBucket?.id || ''}
           onClose={() => setShowSourceModal(false)}
           onSourceAdded={() => {
             // Refresh sources after adding

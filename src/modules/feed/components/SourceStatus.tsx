@@ -1,15 +1,47 @@
 import { useState, useEffect } from 'react';
 import { checkSourceStatus } from '../../../services/api';
 
-const SourceStatus = ({ bucketId }) => {
-  const [status, setStatus] = useState(null);
+interface SourceStatusProps {
+  bucketId: string;
+}
+
+interface Source {
+  id: string;
+  source_url?: string;
+  source_message?: string;
+  status?: string;
+}
+
+interface StatusSummary {
+  success: number;
+  processing: number;
+  pending: number;
+  failed: number;
+}
+
+interface Status {
+  total_sources: number;
+  status_summary: StatusSummary;
+  completionPercentage: number;
+  isFullyProcessed: boolean;
+  sources: {
+    success: Source[];
+    processing: Source[];
+    pending: Source[];
+    failed: Source[];
+  };
+  recent_logs?: string;
+}
+
+const SourceStatus = ({ bucketId }: SourceStatusProps) => {
+  const [status, setStatus] = useState<Status | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [pollCount, setPollCount] = useState(0);
   
   useEffect(() => {
     let mounted = true;
-    let intervalId;
+    let intervalId: NodeJS.Timeout;
     
     const fetchStatus = async () => {
       try {
@@ -27,20 +59,17 @@ const SourceStatus = ({ bucketId }) => {
           setError('');
           setPollCount(prev => prev + 1);
           
-          // Check if all sources are processed
+          // If all sources are processed or we've polled too many times, stop
           const allProcessed = result.isFullyProcessed;
-          const someProcessed = result.status_summary?.success > 0;
           
           // If all sources are processed or we've polled too many times, stop
           if (allProcessed || pollCount > 30) {
             clearInterval(intervalId);
           }
         }
-      } catch (error) {
-        if (mounted) {
-          setError('Failed to fetch source status');
-          console.error('Error fetching source status:', error);
-        }
+      } catch (error: unknown) {
+        setError(error instanceof Error ? error.message : String(error));
+        console.error('Error fetching source status:', error);
       } finally {
         if (mounted) {
           setLoading(false);
@@ -60,9 +89,9 @@ const SourceStatus = ({ bucketId }) => {
         clearInterval(intervalId);
       }
     };
-  }, [bucketId]);
+  }, [bucketId, pollCount]);
   
-  const getSourceTypeIcon = (source) => {
+  const getSourceTypeIcon = (source: Source) => {
     const url = source.source_url || '';
     
     if (url.includes('youtube.com') || url.includes('youtu.be')) {
