@@ -2,7 +2,7 @@ import React, {
   useState,
   useRef,
   useEffect,
-  useCallback
+  useCallback,
 } from "react";
 import { useNavigate, useLocation, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
@@ -15,11 +15,9 @@ import CreatePostDrawer from '../modules/feed/components/CreatePostDrawer';
 import LoginButton from "../components/shakty_homepage_components/LoginButton";
 import axios from "axios";
 // Import the apiClient from our services
+import { apiClient } from '../services/api';
 import { chatWithShakty, saveChatMessage } from '../services/api';
 import { checkSourceStatus } from '../services/api';
-
-// Add API_URL definition
-const API_URL = import.meta.env.VITE_SHAKTY_API_URL || "https://deployment-testing1.onrender.com";
 
 // Helper function to get access token from localStorage
 const getAccessToken = () => {
@@ -73,6 +71,7 @@ const ChatPage = () => {
   const [showCreateShaktyModal, setShowCreateShaktyModal] = useState(false);
   const [showCopied, setShowCopied] = useState(false); // Add this state
   const [creatorName, setCreatorName] = useState<string>("");
+  const [setActiveBucketId] = useState<string | null>(null);
   // console.log(bucketPrompt);
   // console.log(bucketSources);
   const [messages, setMessages] = useState<{ role: string; content: string; isLoading?: boolean }[]>(
@@ -103,14 +102,13 @@ const ChatPage = () => {
     creator_name?: string;
     share_id?: string;
     is_verified: boolean;
-    isOwned?: boolean; // Add this property
   }
 
   // Update the state definition
 
 
   // Add fetch function for bucket data
-  const fetchBucketData = async (bucketId: string): Promise<any> => {
+  const fetchBucketData = async (bucketId: string) => {
     try {
       // Fetch bucket prompt
       const { data: promptData, error: promptError } = await supabase
@@ -150,7 +148,7 @@ const ChatPage = () => {
     }
   };
 
-  const handleBucketSelect = async (bucket: any): Promise<void> => {
+  const handleBucketSelect = async (bucket: any) => {
     // Navigate to the share URL if the bucket has a share_id
     if (bucket.share_id) {
       navigate(`/${bucket.share_id}`);
@@ -166,75 +164,37 @@ const ChatPage = () => {
 
   useEffect(() => {
     const fetchBuckets = async () => {
-      console.log("Fetching buckets for user:", userId);
-      
-      if (!userId) {
-        console.log("No user ID available, skipping bucket fetch");
+      // Update your bucket fetching query to include creator name and filter for verified buckets
+      const { data: bucketsData, error: bucketsError } = await supabase
+        .from("buckets")
+        .select(`
+          *,
+          users:created_by (
+            name
+          )
+        `)
+        .eq('is_verified', true); // Only fetch verified buckets
+
+      if (bucketsError) {
+        console.error("Error fetching buckets:", bucketsError);
         return;
       }
 
-      try {
-        // Fetch all buckets created by the current user
-        const { data: userBuckets, error: userBucketsError } = await supabase
-          .from("buckets")
-          .select(`
-            *,
-            users:created_by (
-              name
-            )
-          `)
-          .eq('created_by', userId);
-          
-        if (userBucketsError) {
-          console.error("Error fetching user's buckets:", userBucketsError);
-          return;
-        }
-        
-        console.log("User buckets fetched:", userBuckets?.length || 0);
+      // Transform the data to include creator_name
+      const transformedBuckets = bucketsData?.map((bucket) => ({
+        ...bucket,
+        creator_name: bucket.users?.name,
+      }));
 
-        // Fetch public/verified buckets
-        const { data: publicBuckets, error: publicBucketsError } = await supabase
-          .from("buckets")
-          .select(`
-            *,
-            users:created_by (
-              name
-            )
-          `)
-          .eq('is_verified', true)
-          .neq('created_by', userId); // Don't duplicate user's own buckets
-          
-        if (publicBucketsError) {
-          console.error("Error fetching public buckets:", publicBucketsError);
-        }
-        
-        // Combine and transform the data
-        const allBuckets = [
-          ...(userBuckets || []).map(bucket => ({
-            ...bucket,
-            creator_name: bucket.users?.name || "You",
-            isOwned: true // Mark as owned by the current user
-          })),
-          ...(publicBuckets || []).map(bucket => ({
-            ...bucket,
-            creator_name: bucket.users?.name || "Unknown",
-            isOwned: false
-          }))
-        ];
-        
-        console.log("All buckets combined:", allBuckets.length);
-        setBuckets(allBuckets);
-      } catch (error) {
-        console.error("Error in fetchBuckets:", error);
-      }
+      setBuckets(transformedBuckets || []);
     };
 
     fetchBuckets();
-  }, [userId]);
+  }, []);
 
 
 
-  const fetchUserDetails = async (email: string): Promise<any> => {
+  const fetchUserDetails = async (email: string) => {
     const { data, error } = await supabase
       .from("users")
       .select("id, name,location, profile_picture_url")
@@ -355,8 +315,10 @@ const ChatPage = () => {
     }
   };
 
+  // Add this new function near the top of the component
+
   // Update the processInstagram function to match the API expectations
-  const processInstagram = async (url: string, bucketId: string): Promise<any> => {
+  const processInstagram = async (url, bucketId) => {
     try {
       console.log("Processing Instagram URL:", url);
       
@@ -415,7 +377,7 @@ const ChatPage = () => {
       }
       
       return response.data;
-    } catch (error: any) { // Fix for error type
+    } catch (error) {
       // Handle 401 error - token expired
       if (axios.isAxiosError(error) && error.response?.status === 401) {
         console.log("Authentication token expired, attempting to refresh...");
@@ -454,7 +416,10 @@ const ChatPage = () => {
       
       // Try to validate the token with Supabase
       try {
-        // Use the imported supabase instance instead of creating a new one
+        const supabase = createClient(
+          import.meta.env.VITE_SUPABASE_URL,
+          import.meta.env.VITE_SUPABASE_ANON_KEY
+        );
         
         // First check if the token is still valid
         const { data: userData, error: userError } = await supabase.auth.getUser(token);
@@ -488,115 +453,30 @@ const ChatPage = () => {
           console.error("No token in refresh response");
           return false;
         }
-      } catch (error: any) { // Fix error type
+      } catch (error) {
         console.error("Error during token validation/refresh:", error);
         return false;
       }
-    } catch (error: any) { // Fix error type
+    } catch (error) {
       console.error("Error in checkAndRefreshToken:", error);
       return false;
     }
   };
 
   // Then define handleSessionCreation
-  // const handleSessionCreation = async (sessionId: string | undefined, userMessage: string, aiResponse: string) => {
-  //   try {
-  //     // If no session ID was provided, create a new one
-  //     if (!sessionId) {
-  //       console.log("No session ID provided, creating new session");
-  //       const token = getAccessToken();
-        
-  //       if (!token) {
-  //         console.error("No authentication token found");
-  //         return;
-  //       }
-        
-  //       // Create a new chat session
-  //       try {
-  //         const sessionResponse = await apiClient.post(
-  //           `/api/chat/session/create`,
-  //           null,
-  //           {
-  //             params: {
-  //       bucket_id: currentBucket?.id,
-  //               topic: "New conversation"
-  //             }
-  //           }
-  //         );
-        
-  //         if (sessionResponse.data && sessionResponse.data.session_id) {
-  //           sessionId = sessionResponse.data.session_id;
-  //           console.log(`Created new session: ${sessionId}`);
-        
-  //           // Store the session ID in the URL for sharing/persistence
-  //           const url = new URL(window.location.href);
-  //           url.searchParams.set('sessionId', sessionId);
-  //           window.history.replaceState({}, '', url.toString());
-  //         }
-  //       } catch (error) {
-  //         console.error("Failed to create chat session:", error);
-  //         // Continue without a session - messages won't be saved
-  //       }
-  //     }
-        
-  //     // If we have a session ID, store the messages
-  //     if (sessionId) {
-  //       try {
-  //         // Store both messages in parallel
-  //         await Promise.all([
-  //           // Store user message
-  //           apiClient.post(
-  //             `/api/chat/message`,
-  //             null,
-  //             {
-  //               params: {
-  //                 session_id: sessionId,
-  //                 message: userMessage,
-  //                 sender: "user"
-  //               }
-  //             }
-  //           ),
-  //           // Store AI response
-  //           apiClient.post(
-  //             `/api/chat/message`,
-  //             null,
-  //             {
-  //               params: {
-  //                 session_id: sessionId,
-  //                 message: aiResponse,
-  //                 sender: "llm"
-  //               }
-  //             }
-  //           )
-  //         ]);
-        
-  //         console.log("Stored messages in session:", sessionId);
-  //       } catch (error) {
-  //         console.error("Failed to store messages:", error);
-  //         // Don't throw here - we don't want to disrupt the chat experience
-  //       }
-  //     }
-  //   } catch (error) {
-  //     console.error("Error in session creation:", error);
-  //     // Don't throw here to avoid disrupting the app
-  //   }
-  // };
 
   // Move this function up before fetchAndProcessAIResponse
-  const createChatSession = async (bucketId: string | null | undefined, topic: string): Promise<any> => {
+  const createChatSession = async (bucketId: string | null | undefined, topic: string) => {
     try {
       console.log(`Creating new chat session for bucket: ${bucketId}, topic: ${topic}`);
       
-      // Get a string bucket ID to use in the API call
-      const bucketIdParam: string = bucketId === undefined || bucketId === null ? "" : bucketId;
-      
-      const response = await axios.post(
-        `${API_URL}/api/chat/session/create`,
-        { topic },
+      const response = await apiClient.post(
+        `/api/chat/session/create`,
+        null,
         {
-          params: { bucket_id: bucketIdParam },
-          headers: {
-            Authorization: `Bearer ${token}`
+          params: {
+            bucket_id: bucketId,
+            topic: topic
           }
         }
       );
@@ -613,10 +493,7 @@ const ChatPage = () => {
   };
 
   // Now define fetchAndProcessAIResponse which uses createChatSession
-  const fetchAndProcessAIResponse = useCallback(async (
-    question: string, 
-    sessionId: string | null = null
-  ): Promise<any> => {
+  const fetchAndProcessAIResponse = useCallback(async (question, sessionId = null) => {
     setIsLoading(true);
     
     try {
@@ -672,7 +549,7 @@ const ChatPage = () => {
       if (!sessionId) {
         try {
           // If the API returns an object with session_id
-          const session = await createChatSession(bucketIdToUse!, "Chat session");
+          const session = await createChatSession(bucketIdToUse, "Chat session");
           
           // Make sure you're extracting just the session_id string
           newSessionId = session.session_id; // or session.id, depending on your API response
@@ -685,13 +562,13 @@ const ChatPage = () => {
       // Get chat history (previous messages for context)
       const chatHistory = messages
         .filter(msg => msg.role !== "user" || msg.content !== messages[0].content)
-        .map(msg => [msg.role === "user" ? "Human" : "AI", msg.content] as [string, string]);
+        .map(msg => [msg.role === "user" ? "Human" : "AI", msg.content]);
       
       // Send the request to the AI
       const aiResponse = await chatWithShakty(
         bucketIdToUse,
         question,
-        chatHistory.slice(-4)
+        chatHistory.slice(-4) // Use last 4 exchanges for context
       );
       
       console.log("Raw AI response:", aiResponse);
@@ -719,18 +596,8 @@ const ChatPage = () => {
       // Save messages to the chat session
       if (newSessionId) {
         try {
-          // Safe extraction of the session ID
-          let sessionIdToUse: string;
-          
-          if (typeof newSessionId === 'string') {
-            sessionIdToUse = newSessionId;
-          } else if (typeof newSessionId === 'object' && newSessionId !== null) {
-            // Use a Record type to bypass the "never" issue
-            const typedObj = newSessionId as Record<string, unknown>;
-            sessionIdToUse = typedObj.id ? String(typedObj.id) : String(newSessionId);
-          } else {
-            sessionIdToUse = String(newSessionId);
-          }
+          // Make sure we're passing a string, not an object
+          const sessionIdToUse = typeof newSessionId === 'string' ? newSessionId : newSessionId.id || String(newSessionId);
           
           await saveChatMessage(sessionIdToUse, question, 'user');
           await saveChatMessage(sessionIdToUse, responseText, 'llm');
@@ -767,42 +634,42 @@ const ChatPage = () => {
     }
   }, [currentBucket, messages, checkSourceStatus, saveChatMessage, createChatSession, chatWithShakty]);
 
-  // Update the handleSubmit function
-  const handleSubmit = useCallback(async (e: React.FormEvent): Promise<void> => {
-    e.preventDefault();
-    
-    if (!input.trim() || isLoading) return;
+  // Update the fetchWithRetry function
 
-    const userMessage = input.trim();
-    setInput('');
-    
-    // Add user message to the UI
-    setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
-    
-    // Make sure we have a session ID as a string
-    let sessionIdToUse = currentSessionId;
-    if (typeof sessionIdToUse !== 'string' && sessionIdToUse) {
-      // Use safer type guard and assertion
-      if (typeof sessionIdToUse === 'object' && sessionIdToUse !== null && 'id' in sessionIdToUse) {
-        sessionIdToUse = (sessionIdToUse as {id: string}).id;
-      } else {
-        sessionIdToUse = String(sessionIdToUse);
-      }
-    }
-    
-    try {
-      // Save user message
-      if (sessionIdToUse) {
-        await saveChatMessage(sessionIdToUse, userMessage, 'user');
+  // Update the handleSubmit function
+  const handleSubmit = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      
+      if (!input.trim() || isLoading) return;
+
+      const userMessage = input.trim();
+      setInput('');
+      
+      // Add user message to the UI
+      setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
+      
+      // Make sure we have a session ID as a string
+      let sessionIdToUse = currentSessionId;
+      if (typeof sessionIdToUse !== 'string' && sessionIdToUse) {
+        sessionIdToUse = sessionIdToUse.id || String(sessionIdToUse);
       }
       
-      // Process the message and get AI response
-      await fetchAndProcessAIResponse(userMessage, sessionIdToUse);
-    } catch (error) {
-      console.error("Error in chat submission:", error);
-      setMessages(prev => [...prev, { role: 'llm', content: "Sorry, I encountered an error. Please try again." }]);
-    }
-  }, [input, isLoading, currentSessionId, fetchAndProcessAIResponse]);
+      try {
+        // Save user message
+        if (sessionIdToUse) {
+          await saveChatMessage(sessionIdToUse, userMessage, 'user');
+        }
+        
+        // Process the message and get AI response
+        await fetchAndProcessAIResponse(userMessage, sessionIdToUse);
+      } catch (error) {
+        console.error("Error in chat submission:", error);
+        setMessages(prev => [...prev, { role: 'llm', content: "Sorry, I encountered an error. Please try again." }]);
+      }
+    },
+    [input, isLoading, currentSessionId, fetchAndProcessAIResponse]
+  );
 
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -828,7 +695,7 @@ const ChatPage = () => {
     setShowDropdown(!showDropdown);
   };
 
-  const handleSelectSession = async (sessionId: string): Promise<void> => {
+  const handleSelectSession = async (sessionId: string) => {
     try {
       const { data: sessionData, error: sessionError } = await supabase
         .from("chat_sessions")
@@ -892,7 +759,7 @@ const ChatPage = () => {
             character_name: sessionData.buckets.character_name,
             isPublic: sessionData.buckets.isPublic,
             is_verified: sessionData.buckets.is_verified,
-          } as Bucket;
+          };
           
           setCurrentBucket(bucket);
           await fetchBucketData(sessionData.buckets.id);
@@ -1184,10 +1051,7 @@ const ChatPage = () => {
   
 
   // Add this component inside ChatPage but before the return statement
-  const CreateShaktyModal = ({ onClose, onBucketCreated }: { 
-    onClose: () => void;
-    onBucketCreated?: () => void;
-  }) => {
+  const CreateShaktyModal = ({ onClose }: { onClose: () => void }) => {
     const [name, setName] = useState("");
     const [tagline, setTagline] = useState("");
     const [characterName, setCharacterName] = useState("");
@@ -1297,106 +1161,38 @@ const ChatPage = () => {
       }
 
       try {
-        // Get user information from localStorage
-        const token = localStorage.getItem(`${import.meta.env.VITE_TOKEN_ID}`);
-        const parsedToken = token ? JSON.parse(token) : null;
-        
-        // Extract user information
-        const authUser = parsedToken?.user;
-        const userEmail = authUser?.email;
-        const userAuthId = authUser?.id;
-        
-        if (!userEmail || !userAuthId) {
-          throw new Error("User information not found. Please login again.");
-        }
-        
-        // First, check if a user with this email already exists
-        const { data: userByEmail } = await supabase
-          .from("users")
-          .select("id")
-          .eq("email", userEmail)
-          .single();
-        
-        let userId = userAuthId;
-        
-        // If we found a user with this email, use their ID
-        if (userByEmail) {
-          console.log("Found existing user with email:", userEmail);
-          userId = userByEmail.id;
-        } else {
-          // If no user with this email exists, try to find by ID
-          const { data: userById, error: idError } = await supabase
+        const getUserName = async () => {
+          const { data: userData, error: userError } = await supabase
             .from("users")
-            .select("id")
-            .eq("id", userAuthId)
+            .select("username")
+            .eq("id", userId)
             .single();
-          
-          if (idError || !userById) {
-            console.log("Creating new user record...");
-            
-            try {
-              // Generate a username from email
-              const defaultUsername = userEmail.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '-');
-              
-              // Insert new user
-              const { error: createError } = await supabase
-                .from("users")
-                .insert({
-                  id: userAuthId,
-                  email: userEmail,
-                  name: defaultUsername,
-                  username: defaultUsername,
-                });
-              
-              if (createError) {
-                if (createError.code === '23505') {
-                  // If we get a duplicate key error, try to find the user again
-                  console.log("User already exists, trying to fetch ID...");
-                  const { data: existingUser } = await supabase
-                    .from("users")
-                    .select("id")
-                    .eq("email", userEmail)
-                    .single();
-                  
-                  if (existingUser) {
-                    userId = existingUser.id;
-                  } else {
-                    throw new Error("Could not find or create user account");
-                  }
-                } else {
-                  throw createError;
-                }
-              }
-            } catch (createUserError) {
-              console.error("Error in user creation:", createUserError);
-              // Continue with bucket creation anyway, using auth ID
-            }
-          } else {
-            userId = userById.id;
+
+          if (userError || !userData) {
+            throw new Error("Could not fetch user data");
           }
-        }
-        
-        // Generate URL-friendly versions of username and shakty name
-        const username = userEmail.split('@')[0].toLowerCase();
-        const urlFriendlyUsername = username.replace(/[^a-z0-9]/g, '-');
+
+          return userData.username;
+        };
+
+        const username = await getUserName();
+        // Create URL-friendly versions of username and shakty name
+        const urlFriendlyUsername = username.toLowerCase();
         const urlFriendlyShaktyName = name.toLowerCase().replace(/\s+/g, "-");
         const share_id = `${urlFriendlyUsername}/${urlFriendlyShaktyName}`;
 
-        console.log("Creating bucket with user ID:", userId);
-        
-        // Now create the bucket with the user ID
         const { data, error } = await supabase
           .from("buckets")
           .insert({
             name: name,
             bio: tagline,
             character_name: characterName,
-            prompt: instructions || "", 
+            prompt: instructions,
             isPublic: isPublic,
             shakty_dp: uploadedImageUrl,
             created_by: userId,
             share_id: share_id,
-            is_verified: isPublic ? false : true,
+            is_verified: isPublic ? false : true, // Set is_verified to false for public Shakties, true for private ones
           })
           .select()
           .single();
@@ -1409,10 +1205,6 @@ const ChatPage = () => {
           setShareUrl(url);
           setIsSuccess(true);
         } else {
-          // Call the callback to refresh buckets
-          if (onBucketCreated) {
-            onBucketCreated();
-          }
           onClose();
         }
       } catch (error) {
@@ -1542,13 +1334,11 @@ const ChatPage = () => {
                   <div className="w-[98px] h-[98px] bg-[#F87631] rounded-full flex items-center justify-center overflow-hidden">
                     {uploadedImageUrl ? (
                       <img
-                        src={`${import.meta.env.VITE_SUPABASE_URL || "https://mhhmucxengkrgkwpecee.supabase.co"}/storage/v1/object/public/img/${uploadedImageUrl}`}
+                        src={`${
+                          import.meta.env.VITE_SUPABASE_URL
+                        }/storage/v1/object/public/img/${uploadedImageUrl}`}
                         alt="Profile"
                         className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.currentTarget.onerror = null; // Prevent infinite error loop
-                          e.currentTarget.src = "/assets/bot.svg"; // Fallback image
-                        }}
                       />
                     ) : (
                       <div className="text-white">
@@ -1732,21 +1522,16 @@ const ChatPage = () => {
       if (!username || !shareId) return;
 
       try {
-        console.log(`Loading shared Shakty: ${username}/${shareId}`);
-        
         // Use the complete share_id format (username/shakty-name)
         const share_id = `${username}/${shareId}`;
 
-        // First fetch the bucket using share_id
+        // First fetch the bucket using share_id, but don't filter for is_verified
         const { data: bucketData, error: bucketError } = await supabase
           .from("buckets")
           .select(`
             *,
             users:created_by (
-              id,
-              name,
-              username,
-              profile_picture_url
+              name
             )
           `)
           .eq("share_id", share_id)
@@ -1758,67 +1543,32 @@ const ChatPage = () => {
         }
 
         if (bucketData) {
-          console.log("Found bucket data:", bucketData.id);
-          
           // Set current bucket with all its data
           setCurrentBucket(bucketData);
 
           // Set creator name from the joined users data
-          if (bucketData.users) {
-            setCreatorName(bucketData.users.name || "Unknown");
-            console.log("Creator information:", bucketData.users);
-          } else {
-            console.log("No creator information in bucket data");
-            // Try to fetch creator information separately
-            if (bucketData.created_by) {
-              try {
-                const { data: userData, error: userError } = await supabase
-                  .from("users")
-                  .select("name, username, profile_picture_url")
-                  .eq("id", bucketData.created_by)
-                  .single();
-                
-                if (!userError && userData) {
-                  setCreatorName(userData.name || "Unknown");
-                  console.log("Fetched creator data:", userData);
-                }
-              } catch (userFetchError) {
-                console.error("Error fetching creator:", userFetchError);
-              }
-            }
-          }
+          setCreatorName(bucketData.users?.name || "Unknown");
 
           // Only proceed with loading data if the Shakty is verified
-          if (!bucketData.is_verified && bucketData.isPublic) {
-            console.log("Shakty is public but not verified yet");
+          if (!bucketData.is_verified) {
             setShowChatInput(false);
-            return; // Stop here if public but not verified
+            return; // Stop here if not verified
           }
 
-          console.log("Loading bucket content and sources");
-          
+          // Rest of the existing code for loading verified Shakty data...
           try {
-            // Fetch prompt data if needed
-            let promptData = bucketData.prompt;
-            if (!promptData) {
-              const { data: promptResponse } = await supabase
-                .from("buckets")
-                .select("prompt")
-                .eq("id", bucketData.id)
-                .single();
-                
-              promptData = promptResponse?.prompt || "";
-            }
+            // Fetch prompt
+            const { data: promptData } = await supabase
+              .from("buckets")
+              .select("prompt")
+              .eq("id", bucketData.id)
+              .single();
 
             // Fetch sources
-            const { data: sourcesData, error: sourcesError } = await supabase
+            const { data: sourcesData } = await supabase
               .from("sources")
               .select("source_message, scraped_content")
               .eq("bucket_id", bucketData.id);
-
-            if (sourcesError) {
-              console.error("Error fetching sources:", sourcesError);
-            }
 
             const sources =
               sourcesData?.map((source) =>
@@ -1827,16 +1577,15 @@ const ChatPage = () => {
                   : source.source_message
               ) || [];
 
-            console.log(`Loaded ${sources.length} sources`);
             setBucketSources(sources);
-            setBucketPrompt(promptData || "");
+            setBucketPrompt(promptData?.prompt || "");
 
             setMessages([
               {
                 role: "user",
                 content: `
                   Chatbot Context:
-                  ${promptData || ""}
+                  ${promptData?.prompt || ""}
 
                   Sources:
                   ${sources.join("\n")}
@@ -1845,12 +1594,9 @@ const ChatPage = () => {
             ]);
 
             setShowChatInput(true);
-            setHasStartedChat(true);
-          } catch (contentError) {
-            console.error("Error loading bucket content:", contentError);
+          } catch (error) {
+            console.error("Error fetching bucket data:", error);
           }
-        } else {
-          console.error("No bucket found with share_id:", share_id);
         }
       } catch (error) {
         console.error("Error in loadSharedShakty:", error);
@@ -1883,8 +1629,9 @@ const ChatPage = () => {
   }, [currentBucket]);
   const getBucketImageSrc = (bucket: any) => {
     if (!bucket.by_shakty && bucket.shakty_dp) {
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "https://mhhmucxengkrgkwpecee.supabase.co";
-      return `${supabaseUrl}/storage/v1/object/public/img/${bucket.shakty_dp}`;
+      return `${
+        import.meta.env.VITE_SUPABASE_URL
+      }/storage/v1/object/public/img/${bucket.shakty_dp}`;
     }
 
     const imageSrc = "/assets/";
@@ -1944,126 +1691,26 @@ const ChatPage = () => {
 
     loadSessionFromURL();
   }, [location.search, location.state]); // Add dependencies
-console.log("bucket created_by", currentBucket?.created_by)
-console.log("userDetails id", userDetails?.id)
+  console.log("bucket created_by", currentBucket?.created_by)
+  console.log("userDetails id", userDetails?.id)
+
+  // Add this line at the beginning of the ChatPage component, right after your other state declarations:
+  
 
   // Then, add this useEffect to keep activeBucketId in sync with currentBucket
   useEffect(() => {
-    if (currentBucket?.id) {
-      console.log(`Current bucket ID: ${currentBucket.id}`);
+    if (currentBucket) {
+      setActiveBucketId(currentBucket.id);
     }
   }, [currentBucket]);
 
-  // Add this function to ChatPage component
-  const refreshBuckets = async () => {
-    console.log("Refreshing buckets after creation");
-    
-    try {
-      // Fetch all buckets created by the current user
-      const { data: userBuckets, error: userBucketsError } = await supabase
-        .from("buckets")
-        .select(`
-          *,
-          users:created_by (
-            name
-          )
-        `)
-        .eq('created_by', userId);
-        
-      if (userBucketsError) {
-        console.error("Error fetching user's buckets:", userBucketsError);
-        return;
-      }
-      
-      // Fetch public/verified buckets
-      const { data: publicBuckets, error: publicBucketsError } = await supabase
-        .from("buckets")
-        .select(`
-          *,
-          users:created_by (
-            name
-          )
-        `)
-        .eq('is_verified', true)
-        .neq('created_by', userId); // Don't duplicate user's own buckets
-        
-      if (publicBucketsError) {
-        console.error("Error fetching public buckets:", publicBucketsError);
-      }
-      
-      // Combine and transform the data
-      const allBuckets = [
-        ...(userBuckets || []).map(bucket => ({
-          ...bucket,
-          creator_name: bucket.users?.name || "You",
-          isOwned: true // Mark as owned by the current user
-        })),
-        ...(publicBuckets || []).map(bucket => ({
-          ...bucket,
-          creator_name: bucket.users?.name || "Unknown",
-          isOwned: false
-        }))
-      ];
-      
-      console.log("Buckets refreshed:", allBuckets.length);
-      setBuckets(allBuckets);
-    } catch (error) {
-      console.error("Error refreshing buckets:", error);
-    }
-  };
-
-  // Add this useEffect to log buckets whenever they change
+  // Set active bucket ID when current bucket changes
   useEffect(() => {
-    console.log("Buckets state updated:", buckets.length);
-    console.log("User's buckets:", buckets.filter(b => b.isOwned).length);
-  }, [buckets]);
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  //const getUsernameFromPath = () => {
-  //  const pathSegments = window.location.pathname.split('/');
-    // The URL format is /shakty/:username/:shaktyName
-   // if (pathSegments.length >= 3 && pathSegments[1] === 'shakty') {
-   //   return pathSegments[2];
-  //  }
-  //  return null;
-  //};
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  //const getUserImageSrc = (profilePictureUrl: string | null, username: string | null) => {
-  //  if (profilePictureUrl) {
-  //    // If profile picture exists, use it
-   //   return `${import.meta.env.VITE_SUPABASE_URL || "https://mhhmucxengkrgkwpecee.supabase.co"}/storage/v1/object/public/img/${profilePictureUrl}`;
-  //  }
-   // 
-   // // Otherwise use default avatar
-   // return "/assets/default-avatar.png"; // Replace with your default avatar path
- // };
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  //const fetchCreatorProfile = async (username: string | null) => {
-  //  if (!username) {
-  //    console.log("No username provided, skipping profile fetch");
-  //    return null;
-   // }
-  //  
-   // try {
-   //   const { data, error } = await supabase
-   //     .from("users")
-    //    .select("profile_picture_url, name")
-     //   .eq("username", username)
-     //   .single();
-     // 
-      //if (error) {
-      //  console.error("Error fetching user profile:", error);
-      //  return null;
-     // }
-      
-    // / return data;
-    //} catch (error) {
-     // console.error("Exception fetching user profile:", error);
-     // return null;
-   // }
-  //};
+    if (currentBucket?.id) {
+      console.log(`Setting active bucket ID to: ${currentBucket.id}`);
+      setActiveBucketId(currentBucket.id);
+    }
+  }, [currentBucket]);
 
   return (
     <main className="chat-page h-screen w-screen mx-auto flex flex-col text-ui-90 relative">
@@ -2375,7 +2022,7 @@ console.log("userDetails id", userDetails?.id)
 
               <div className="hidden lg:block">
                 <ChatHistoryDrawer
-                  userId={userId || ""} // Use userId from parsedToken instead of userDetails?.id
+                  userId={userDetails?.id || ""}
                   onSelectSession={handleSelectSession}
                   isOpen={true}
                   onClose={() => setShowDrawer(false)}
@@ -2383,7 +2030,7 @@ console.log("userDetails id", userDetails?.id)
                   onBucketSelect={handleBucketSelectFromHistory}
                   selectedNewChat={selectedNewChat}
                   currentSessionId={currentSessionId}
-                  isHistoryPage={false}
+                  isHistoryPage={false} // Add this prop
                 />
               </div>
             </div>
@@ -2397,13 +2044,13 @@ console.log("userDetails id", userDetails?.id)
               <div className="bg-white flex items-center justify-center  rounded-full border-ui-90 w-7 h-7 overflow-hidden border-0.8">
                 {userDetails?.profile_picture_url ? (
                   <img
-                    src={`${import.meta.env.VITE_SUPABASE_URL || "https://mhhmucxengkrgkwpecee.supabase.co"}/storage/v1/object/public/img/${userDetails.profile_picture_url}`}
+                    src={`${
+                      import.meta.env.VITE_SUPABASE_URL
+                    }/storage/v1/object/public/img/${
+                      userDetails?.profile_picture_url
+                    }`}
                     alt="user image"
                     className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.currentTarget.onerror = null; // Prevent infinite error loop
-                      e.currentTarget.src = "/assets/bot.svg"; // Fallback image
-                    }}
                   />
                 ) : (
                   <img
@@ -2479,13 +2126,9 @@ console.log("userDetails id", userDetails?.id)
                       <div className="w-32 h-32 rounded-full overflow-hidden border-[4px] border-[#F87631] mb-4">
                         {currentBucket?.shakty_dp ? (
                           <img
-                            src={`${import.meta.env.VITE_SUPABASE_URL || "https://mhhmucxengkrgkwpecee.supabase.co"}/storage/v1/object/public/img/${currentBucket.shakty_dp}`}
+                            src={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/img/${currentBucket.shakty_dp}`}
                             alt={currentBucket.name}
                             className="w-full h-full object-cover"
-                            onError={(e) => {
-                              e.currentTarget.onerror = null; // Prevent infinite error loop
-                              e.currentTarget.src = "/assets/bot.svg"; // Fallback image
-                            }}
                           />
                         ) : (
                           <div className="w-30 h-32 bg-[#F87631] rounded-full flex items-center justify-center overflow-hidden">
@@ -2707,13 +2350,13 @@ console.log("userDetails id", userDetails?.id)
                             <>
                               {currentBucket?.shakty_dp ? (
                                 <img
-                                  src={`${import.meta.env.VITE_SUPABASE_URL || "https://mhhmucxengkrgkwpecee.supabase.co"}/storage/v1/object/public/img/${currentBucket.shakty_dp}`}
+                                  src={`${
+                                    import.meta.env.VITE_SUPABASE_URL
+                                  }/storage/v1/object/public/img/${
+                                    currentBucket.shakty_dp
+                                  }`}
                                   alt={currentBucket.name || "bot"}
                                   className="w-8 h-8 rounded-full object-cover mr-2"
-                                  onError={(e) => {
-                                    e.currentTarget.onerror = null; // Prevent infinite error loop
-                                    e.currentTarget.src = "/assets/bot.svg"; // Fallback image
-                                  }}
                                 />
                               ) : (
                                 <img
@@ -2778,13 +2421,13 @@ console.log("userDetails id", userDetails?.id)
                             <div className="flex-shrink-0 ml-2">
                               {userDetails?.profile_picture_url ? (
                                 <img
-                                  src={`${import.meta.env.VITE_SUPABASE_URL || "https://mhhmucxengkrgkwpecee.supabase.co"}/storage/v1/object/public/img/${userDetails.profile_picture_url}`}
+                                  src={`${
+                                    import.meta.env.VITE_SUPABASE_URL
+                                  }/storage/v1/object/public/img/${
+                                    userDetails.profile_picture_url
+                                  }`}
                                   alt="user"
                                   className="w-8 h-8 rounded-full object-cover"
-                                  onError={(e) => {
-                                    e.currentTarget.onerror = null; // Prevent infinite error loop
-                                    e.currentTarget.src = "/assets/bot.svg"; // Fallback image
-                                  }}
                                 />
                               ) : (
                                 <div className="border-[0.8px] border-[#564d48] rounded-full w-full h-full flex items-center justify-center">
@@ -2809,13 +2452,13 @@ console.log("userDetails id", userDetails?.id)
                             <div className="flex justify-start items-start">
                               {currentBucket?.shakty_dp ? (
                                 <img
-                                  src={`${import.meta.env.VITE_SUPABASE_URL || "https://mhhmucxengkrgkwpecee.supabase.co"}/storage/v1/object/public/img/${currentBucket.shakty_dp}`}
+                                  src={`${
+                                    import.meta.env.VITE_SUPABASE_URL
+                                  }/storage/v1/object/public/img/${
+                                    currentBucket.shakty_dp
+                                  }`}
                                   alt={currentBucket.name || "bot"}
                                   className="w-8 h-8 rounded-full object-cover mr-2"
-                                  onError={(e) => {
-                                    e.currentTarget.onerror = null; // Prevent infinite error loop
-                                    e.currentTarget.src = "/assets/bot.svg"; // Fallback image
-                                  }}
                                 />
                               ) : (
                                 <img
@@ -2988,7 +2631,7 @@ console.log("userDetails id", userDetails?.id)
             </div>
             <div className="flex-1 overflow-y-auto">
               <ChatHistoryDrawer
-                userId={userId || ""} // Use userId from parsedToken instead of userDetails?.id
+                userId={userDetails?.id || ""}
                 onSelectSession={handleSelectSession}
                 isOpen={true}
                 onClose={() => setShowDrawer(false)}
@@ -2996,7 +2639,7 @@ console.log("userDetails id", userDetails?.id)
                 onBucketSelect={handleBucketSelectFromHistory}
                 selectedNewChat={selectedNewChat}
                 currentSessionId={currentSessionId}
-                isHistoryPage={false}
+                isHistoryPage={false} // Add this prop
               />
             </div>
           </div>
@@ -3026,7 +2669,7 @@ console.log("userDetails id", userDetails?.id)
       )}
       {showSourceModal && (
         <CreatePostDrawer
-          bucketId={currentBucket?.id || ""}  // Add default empty string
+          bucketId={currentBucket?.id}
           onClose={() => setShowSourceModal(false)}
           onSourceAdded={() => {
             // Refresh sources after adding
@@ -3073,10 +2716,7 @@ console.log("userDetails id", userDetails?.id)
         </div>
       )}
       {showCreateShaktyModal && (
-        <CreateShaktyModal 
-          onClose={() => setShowCreateShaktyModal(false)} 
-          onBucketCreated={refreshBuckets}
-        />
+        <CreateShaktyModal onClose={() => setShowCreateShaktyModal(false)} />
       )}
     </main>
   );

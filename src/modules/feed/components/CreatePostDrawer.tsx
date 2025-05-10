@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  processUrl as _processUrlApi, 
+  processUrl as processUrlApi, 
   processYouTube, 
   processInstagram, 
   processText,
@@ -84,7 +83,7 @@ const styles = {
     borderRadius: '4px',
     fontSize: '1rem',
     minHeight: '150px',
-    resize: 'vertical' as const,
+    resize: 'vertical',
     marginBottom: '8px',
   },
   info: {
@@ -140,6 +139,8 @@ interface CreatePostDrawerProps {
   onSourceAdded?: () => void;
 }
 
+
+
 const CreatePostDrawer: React.FC<CreatePostDrawerProps> = ({ bucketId, onClose, onSourceAdded }) => {
   const [url, setUrl] = useState<string>('');
   const [text, setText] = useState<string>('');
@@ -149,13 +150,9 @@ const CreatePostDrawer: React.FC<CreatePostDrawerProps> = ({ bucketId, onClose, 
   const [error, setError] = useState<string>('');
   const [success, setSuccess] = useState<string>('');
   const [processingStatus, setProcessingStatus] = useState<any>(null);
-  // Mark unused variables with underscore
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [_processingMessage, setProcessingMessage] = useState("");
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [_componentBucketId, setComponentBucketId] = useState<string | null>(null);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [_activeBucketId, setActiveBucketId] = useState('');
+  const [setProcessingMessage] = useState("");
+  const [ setComponentBucketId] = useState<string | null>(null);
+  const [setActiveBucketId] = useState('');
   
   // Move useParams to the top level of the component
   const params = useParams();
@@ -320,18 +317,19 @@ const CreatePostDrawer: React.FC<CreatePostDrawerProps> = ({ bucketId, onClose, 
           setError(typeof errorMessage === 'object' ? JSON.stringify(errorMessage) : errorMessage);
         }
       }
-    } catch (error: unknown) {
+    } catch (error) {
       console.error('Error processing source:', error);
       
-      // Type guard for error
-      if (error instanceof Error) {
-        setError(error.message || 'An error occurred');
-      } else if (typeof error === 'object' && error !== null && 'message' in error) {
-        // Try to get error message from object
-        setError((error as { message: string }).message);
-      } else {
-        setError('An unexpected error occurred');
+      // Check if this is an authentication error
+      if (error.message?.includes('auth') || error.response?.status === 401 || error.response?.status === 403) {
+        setError('Authentication error. Please log in again.');
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 2000);
+        return;
       }
+      
+      setError(error.message || 'An error occurred while processing the source');
     } finally {
       setIsProcessing(false);
     }

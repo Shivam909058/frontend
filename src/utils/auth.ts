@@ -72,34 +72,16 @@ export const verifyOtpWithRetry = async (email: string, token: string) => {
 };
 
 /**
- * Get user data from Supabase
- */
-export const getUserData = async () => {
-  try {
-    const { data, error } = await supabase.auth.getUser();
-    
-    if (error) throw error;
-    
-    return { data, error: null };
-  } catch (error) {
-    console.error("Error fetching user data:", error);
-    return { data: null, error };
-  }
-};
-
-/**
  * Gets the current access token from localStorage
  */
 export const getAccessToken = (): string | null => {
   try {
     const tokenId = import.meta.env.VITE_TOKEN_ID;
     const tokenJson = localStorage.getItem(tokenId);
-    
     if (!tokenJson) {
       console.error('No token found in localStorage');
       return null;
     }
-    
     const parsedToken = JSON.parse(tokenJson);
     return parsedToken?.access_token || null;
   } catch (error) {

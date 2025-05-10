@@ -94,7 +94,7 @@ export const refreshAuthToken = async (): Promise<string | null> => {
     
     console.error("Token refresh response has no session data");
     return null;
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error refreshing token:', error);
     
     // Handle authentication errors
@@ -415,7 +415,7 @@ export const enhanceInstagramRetrieval = async (bucketId: string, question: stri
       console.log(`Found ${instagramSources.length} Instagram sources that should be included in retrieval`);
       
       // Log the sources for debugging
-      instagramSources.forEach((source: any, index: number) => {
+      instagramSources.forEach((source, index) => {
         console.log(`Instagram source ${index + 1}:`, {
           id: source.id,
           url: source.source_url,
@@ -531,11 +531,11 @@ export const checkSourceStatus = async (bucketId: string) => {
                       statusSummary.processing === 0 &&
                       totalSources > 0
     };
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error checking source status:", error);
     return {
       success: false,
-      error: error.message || "Unknown error",
+      error: error.message,
       total_sources: 0,
       status_summary: { success: 0, processing: 0, pending: 0, failed: 0 },
       isFullyProcessed: false,
@@ -619,7 +619,7 @@ export const chatWithBucket = async (bucketId: string, question: string, chatHis
 };
 
 // Save chat message
-export const saveChatMessage = async (sessionId: string | { id: string } | object, message: string, sender: 'user' | 'llm') => {
+export const saveChatMessage = async (sessionId: string | object, message: string, sender: 'user' | 'llm') => {
   try {
     console.log(`Saving ${sender} message to session:`, sessionId);
     
@@ -630,9 +630,9 @@ export const saveChatMessage = async (sessionId: string | { id: string } | objec
     }
     
     // Make sure sessionId is a string
-    const sessionIdString = typeof sessionId === 'string' 
+    let sessionIdString = typeof sessionId === 'string' 
       ? sessionId 
-      : 'id' in sessionId ? sessionId.id : JSON.stringify(sessionId);
+      : sessionId?.id || JSON.stringify(sessionId);
     
     // Check and refresh token if needed
     const isTokenValid = await checkAndRefreshToken();
@@ -658,7 +658,7 @@ export const saveChatMessage = async (sessionId: string | { id: string } | objec
     });
     
     return response.data;
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error saving message:', error);
     
     // Check if this is an authentication error
@@ -770,7 +770,7 @@ export const chatWithShakty = async (
     
     const data = await response.json();
     return data;
-  } catch (error: any) {
+  } catch (error) {
     if (error.name === 'AbortError') {
       return {
         answer: "I'm sorry, the request took too long to process. Please try asking a simpler question or try again later when all your sources have finished processing.",
@@ -780,7 +780,7 @@ export const chatWithShakty = async (
     
     console.error("Error in chat with Shakty:", error);
     return {
-      answer: `I encountered an error while trying to answer: ${error.message || "Unknown error"}. Please try again or add more sources if you're asking about content I don't have yet.`,
+      answer: `I encountered an error while trying to answer: ${error.message}. Please try again or add more sources if you're asking about content I don't have yet.`,
       sources: []
     };
   }
@@ -891,7 +891,7 @@ export const addSource = async (url: string, bucketId: string) => {
     
     const data = await response.json();
     return data;
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error adding source:", error);
     
     if (error.response) {
@@ -957,69 +957,5 @@ export const checkAndRefreshToken = async (): Promise<boolean> => {
   } catch (error) {
     console.error("Error checking/refreshing token:", error);
     return false;
-  }
-};
-
-export const getUserProfile = async (emailOrId: string): Promise<any> => {
-  try {
-    // Check if valid token exists
-    const isTokenValid = await checkAndRefreshToken();
-    if (!isTokenValid) {
-      throw new Error("Authentication required");
-    }
-    
-    // Get the token
-    const token = getAccessToken();
-    
-    // Determine if emailOrId is an email or user ID
-    const isEmail = emailOrId.includes('@');
-    const param = isEmail ? 'email' : 'id';
-    
-    // Make the API request
-    const response = await apiClient.get('/api/user/profile', {
-      params: {
-        [param]: emailOrId
-      },
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    });
-    
-    return response.data.user;
-  } catch (error) {
-    console.error('Error fetching user profile:', error);
-    return null;
-  }
-};
-
-// Global error handler for fetch operations
-export const safeFetch = async (url: string, options: RequestInit = {}) => {
-  try {
-    const response = await fetch(url, {
-      ...options,
-      // Include credentials for cross-origin requests
-      credentials: 'include',
-      headers: {
-        ...(options.headers || {}),
-        // Add custom headers here
-      }
-    });
-    
-    if (!response.ok) {
-      // Handle HTTP errors
-      const errorData = await response.json().catch(() => ({
-        message: `HTTP error ${response.status}`
-      }));
-      throw new Error(errorData.message || `HTTP error ${response.status}`);
-    }
-    
-    return response.json();
-  } catch (error: unknown) {
-    console.error('Fetch error:', error);
-    // Return a standardized error object
-    return { 
-      error: true, 
-      message: error instanceof Error ? error.message : 'Network request failed' 
-    };
   }
 };
