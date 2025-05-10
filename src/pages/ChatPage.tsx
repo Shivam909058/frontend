@@ -1735,16 +1735,21 @@ const ChatPage = () => {
       if (!username || !shareId) return;
 
       try {
+        console.log(`Loading shared Shakty: ${username}/${shareId}`);
+        
         // Use the complete share_id format (username/shakty-name)
         const share_id = `${username}/${shareId}`;
 
-        // First fetch the bucket using share_id, but don't filter for is_verified
+        // First fetch the bucket using share_id
         const { data: bucketData, error: bucketError } = await supabase
           .from("buckets")
           .select(`
             *,
             users:created_by (
-              name
+              id,
+              name,
+              username,
+              profile_picture_url
             )
           `)
           .eq("share_id", share_id)
@@ -1756,32 +1761,67 @@ const ChatPage = () => {
         }
 
         if (bucketData) {
+          console.log("Found bucket data:", bucketData.id);
+          
           // Set current bucket with all its data
           setCurrentBucket(bucketData);
 
           // Set creator name from the joined users data
-          setCreatorName(bucketData.users?.name || "Unknown");
-
-          // Only proceed with loading data if the Shakty is verified
-          if (!bucketData.is_verified) {
-            setShowChatInput(false);
-            return; // Stop here if not verified
+          if (bucketData.users) {
+            setCreatorName(bucketData.users.name || "Unknown");
+            console.log("Creator information:", bucketData.users);
+          } else {
+            console.log("No creator information in bucket data");
+            // Try to fetch creator information separately
+            if (bucketData.created_by) {
+              try {
+                const { data: userData, error: userError } = await supabase
+                  .from("users")
+                  .select("name, username, profile_picture_url")
+                  .eq("id", bucketData.created_by)
+                  .single();
+                
+                if (!userError && userData) {
+                  setCreatorName(userData.name || "Unknown");
+                  console.log("Fetched creator data:", userData);
+                }
+              } catch (userFetchError) {
+                console.error("Error fetching creator:", userFetchError);
+              }
+            }
           }
 
-          // Rest of the existing code for loading verified Shakty data...
+          // Only proceed with loading data if the Shakty is verified
+          if (!bucketData.is_verified && bucketData.isPublic) {
+            console.log("Shakty is public but not verified yet");
+            setShowChatInput(false);
+            return; // Stop here if public but not verified
+          }
+
+          console.log("Loading bucket content and sources");
+          
           try {
-            // Fetch prompt
-            const { data: promptData } = await supabase
-              .from("buckets")
-              .select("prompt")
-              .eq("id", bucketData.id)
-              .single();
+            // Fetch prompt data if needed
+            let promptData = bucketData.prompt;
+            if (!promptData) {
+              const { data: promptResponse } = await supabase
+                .from("buckets")
+                .select("prompt")
+                .eq("id", bucketData.id)
+                .single();
+                
+              promptData = promptResponse?.prompt || "";
+            }
 
             // Fetch sources
-            const { data: sourcesData } = await supabase
+            const { data: sourcesData, error: sourcesError } = await supabase
               .from("sources")
               .select("source_message, scraped_content")
               .eq("bucket_id", bucketData.id);
+
+            if (sourcesError) {
+              console.error("Error fetching sources:", sourcesError);
+            }
 
             const sources =
               sourcesData?.map((source) =>
@@ -1790,15 +1830,16 @@ const ChatPage = () => {
                   : source.source_message
               ) || [];
 
+            console.log(`Loaded ${sources.length} sources`);
             setBucketSources(sources);
-            setBucketPrompt(promptData?.prompt || "");
+            setBucketPrompt(promptData || "");
 
             setMessages([
               {
                 role: "user",
                 content: `
                   Chatbot Context:
-                  ${promptData?.prompt || ""}
+                  ${promptData || ""}
 
                   Sources:
                   ${sources.join("\n")}
@@ -1807,9 +1848,12 @@ const ChatPage = () => {
             ]);
 
             setShowChatInput(true);
-          } catch (error) {
-            console.error("Error fetching bucket data:", error);
+            setHasStartedChat(true);
+          } catch (contentError) {
+            console.error("Error loading bucket content:", contentError);
           }
+        } else {
+          console.error("No bucket found with share_id:", share_id);
         }
       } catch (error) {
         console.error("Error in loadSharedShakty:", error);
@@ -1976,6 +2020,54 @@ console.log("userDetails id", userDetails?.id)
     console.log("Buckets state updated:", buckets.length);
     console.log("User's buckets:", buckets.filter(b => b.isOwned).length);
   }, [buckets]);
+
+  // Add this helper function to ChatPage component
+  const getUsernameFromPath = () => {
+    const pathSegments = window.location.pathname.split('/');
+    // The URL format is /shakty/:username/:shaktyName
+    if (pathSegments.length >= 3 && pathSegments[1] === 'shakty') {
+      return pathSegments[2];
+    }
+    return null;
+  };
+
+  // Update getUserImageSrc function (if it exists) or add it
+  const getUserImageSrc = (profilePictureUrl: string | null, username: string | null) => {
+    if (profilePictureUrl) {
+      // If profile picture exists, use it
+      return `${import.meta.env.VITE_SUPABASE_URL || "https://mhhmucxengkrgkwpecee.supabase.co"}/storage/v1/object/public/img/${profilePictureUrl}`;
+    }
+    
+    // Otherwise use default avatar
+    return "/assets/default-avatar.png"; // Replace with your default avatar path
+  };
+
+  // Find where you're fetching user profiles and update the logic
+  // Example (adjust according to your actual implementation):
+  const fetchCreatorProfile = async (username: string | null) => {
+    if (!username) {
+      console.log("No username provided, skipping profile fetch");
+      return null;
+    }
+    
+    try {
+      const { data, error } = await supabase
+        .from("users")
+        .select("profile_picture_url, name")
+        .eq("username", username)
+        .single();
+      
+      if (error) {
+        console.error("Error fetching user profile:", error);
+        return null;
+      }
+      
+      return data;
+    } catch (error) {
+      console.error("Exception fetching user profile:", error);
+      return null;
+    }
+  };
 
   return (
     <main className="chat-page h-screen w-screen mx-auto flex flex-col text-ui-90 relative">
