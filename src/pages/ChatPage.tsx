@@ -1258,22 +1258,58 @@ const ChatPage = () => {
       }
 
       try {
-        // Get username from localStorage directly
+        // Get user information from localStorage
         const token = localStorage.getItem(`${import.meta.env.VITE_TOKEN_ID}`);
         const parsedToken = token ? JSON.parse(token) : null;
-        const userEmail = parsedToken?.user?.email;
         
-        // Generate a simple username based on email
-        let username = "user";
-        if (userEmail) {
-          username = userEmail.split('@')[0].toLowerCase();
+        // Extract user information
+        const authUser = parsedToken?.user;
+        const userEmail = authUser?.email;
+        const userAuthId = authUser?.id;
+        
+        if (!userEmail || !userAuthId) {
+          throw new Error("User information not found. Please login again.");
         }
         
-        // Create URL-friendly versions of username and shakty name
+        // First, check if the user record exists in the users table
+        const { data: existingUser, error: userCheckError } = await supabase
+          .from("users")
+          .select("id")
+          .eq("id", userAuthId)  // Check by auth ID
+          .single();
+        
+        // If user doesn't exist, create the user record
+        if (userCheckError || !existingUser) {
+          console.log("Creating user record in the database...");
+          
+          // Generate a username from email
+          const defaultUsername = userEmail.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '-');
+          
+          // Insert the user record with the same ID as the auth user
+          const { data: newUser, error: createUserError } = await supabase
+            .from("users")
+            .insert({
+              id: userAuthId,  // Use the auth user ID
+              email: userEmail,
+              name: defaultUsername,  // Use a default name
+              username: defaultUsername,
+            })
+            .select()
+            .single();
+          
+          if (createUserError) {
+            console.error("Error creating user:", createUserError);
+            throw new Error("Failed to create user profile. Please visit your profile page to complete setup.");
+          }
+        }
+        
+        // Generate URL-friendly versions of username and shakty name
+        const username = userEmail.split('@')[0].toLowerCase();
         const urlFriendlyUsername = username.replace(/[^a-z0-9]/g, '-');
         const urlFriendlyShaktyName = name.toLowerCase().replace(/\s+/g, "-");
         const share_id = `${urlFriendlyUsername}/${urlFriendlyShaktyName}`;
 
+        // Now create the bucket with the auth user ID
         const { data, error } = await supabase
           .from("buckets")
           .insert({
@@ -1283,9 +1319,9 @@ const ChatPage = () => {
             prompt: instructions,
             isPublic: isPublic,
             shakty_dp: uploadedImageUrl,
-            created_by: userId,
+            created_by: userAuthId,  // Use the auth user ID
             share_id: share_id,
-            is_verified: isPublic ? false : true, // Set is_verified to false for public Shakties, true for private ones
+            is_verified: isPublic ? false : true,
           })
           .select()
           .single();
